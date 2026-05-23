@@ -33,6 +33,22 @@ export interface BusinessHoursSummary {
   weekly: BusinessHoursEntry[];
 }
 
+// ---------- Doctors ----------
+
+export interface Doctor {
+  id: string;
+  name: string;
+  title: string;
+  specialties: string[];
+  bioMd: string;
+  credentials: string[];
+  photoUrl: string | null;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---------- Fetchers ----------
 
 export async function getBusinessHoursSummary(): Promise<BusinessHoursSummary> {
@@ -45,4 +61,24 @@ export async function getBusinessHoursSummary(): Promise<BusinessHoursSummary> {
     throw new Error(`Failed to fetch business hours: ${res.status}`);
   }
   return res.json() as Promise<BusinessHoursSummary>;
+}
+
+export async function listDoctors(): Promise<Doctor[]> {
+  const res = await fetch(`${API_URL}/api/doctors`, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch doctors: ${res.status}`);
+  }
+  return res.json() as Promise<Doctor[]>;
+}
+
+/** 找不到回 null（不 throw），讓 caller 用 notFound() 處理 */
+export async function getDoctorById(id: string): Promise<Doctor | null> {
+  const res = await fetch(`${API_URL}/api/doctors/${encodeURIComponent(id)}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`Failed to fetch doctor ${id}: ${res.status}`);
+  }
+  return res.json() as Promise<Doctor>;
 }
