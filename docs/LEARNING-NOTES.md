@@ -490,6 +490,24 @@ export const metadata: Metadata = {
 
 ## Phase 4 — 12-Factor 強化
 
+### 4.5 README + ADR + Production Build Verification
+
+**README 是 onboarding 的核心文件**。寫給「未來的自己」與「全新進來的工程師」。
+- 列前置（要裝什麼）、第一次跑（5 步驟內讓人跑得起來）、常用指令、env 策略
+- 連結到深層文件（LEARNING-NOTES、ADRs、checklists）
+
+**ADR (Architecture Decision Record)** = 輕量級「為什麼當初這樣決策」的快照。
+- 規則：只能新增、不改舊的；改主意要寫新 ADR 標 `Supersedes ADR-N`
+- 格式：Context / Decision / Consequences / Alternatives / Revisit when
+- 編號遞增（0001, 0002, ...），檔案 kebab-case
+- 對應 12-Factor SDLC P.51
+
+**Production build verification** — 真的跑一次 `pnpm build` + `pnpm start`，**不是 dev mode**。
+- 抓出 dev mode 隱藏的問題（型別錯誤、import path 錯、Server Component 在 build 時想存取 client API…）
+- API: `pnpm --filter @dental-clinic/api build` (tsc → dist) → `pnpm --filter ... start` (node dist/server.js)
+- Web: `pnpm --filter @dental-clinic/web build` (next build → .next) → `pnpm --filter ... start` (next start)
+- 對應 12-Factor Factor 5: Build / Release / Run 分離 — `pnpm start` 跑的是 build 產物，**不會跑 tsx watch**
+
 ### 4.4 Shared Workspace Package (`packages/shared`)
 
 **痛點**：BE 與 FE 對同一個 entity 各寫一份 type interface → 容易飄移。
@@ -834,6 +852,27 @@ $d | Format-List
 docker compose logs postgres --tail 20
 ```
 最後一行應該是 `database system is ready to accept connections`。
+
+### 🪤 PowerShell 多行 commit message 帶 `\"` 會 ParseError
+
+**症狀**：跑 `git commit -m "..."` 跨多行、訊息含 `\"...\"`，PowerShell 報「無法辨識的語彙基元」。
+
+**原因**：PowerShell 雙引號字串內 `\` 不是 escape character；要表達雙引號要用 backtick `` `" `` 或 double-double `""`。
+
+**最乾淨修法 — 用 here-string `@'...'@`**：
+```powershell
+git commit -m @'
+feat(x): summary
+
+Body can contain "any" quotes, $vars, backticks `, anything literally.
+Closes #N
+'@
+```
+- 開頭 `@'`、結尾 `'@`
+- **`'@` 必須頂在行首**（縮排會 parse error）
+- 整段 literal，PowerShell 不解析任何字元
+
+**另一條路** — 訊息寫到檔案、用 `git commit -F file.txt` 或 `git commit -F -` 從 stdin 讀。
 
 ### 🪤 PowerShell 5.1 不認識 `&&` / `||`
 
