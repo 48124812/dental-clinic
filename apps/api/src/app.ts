@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { healthRoutes } from './routes/health.js';
 import { businessHoursRoutes } from './routes/business-hours.js';
+import { doctorsRoutes } from './routes/doctors.js';
 
 /**
  * App factory.
@@ -31,6 +32,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // 註冊路由
   await app.register(healthRoutes);
   await app.register(businessHoursRoutes);
+  await app.register(doctorsRoutes);
 
   return app;
 }
