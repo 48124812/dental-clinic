@@ -26,8 +26,8 @@ dental-clinic/
 ## 📅 Phase 進度
 
 - [x] **Phase 1**: Design Thinking — 找出使用者與需求
-- [ ] **Phase 2**: 專案啟動 — Repo / Backlog / Git 流程
-- [ ] **Phase 3**: MVP 開發 — 分層架構、後端 API、前端頁面
+- [x] **Phase 2**: 專案啟動 — Repo / Backlog / Git 流程
+- [ ] **Phase 3**: MVP 開發 — 分層架構、後端 API、前端頁面 ← 下一個
 - [ ] **Phase 4**: 12-Factor 化 — Config 外部化、Stateless、Logs to stdout
 - [ ] **Phase 5**: 容器化 — Dockerfile、Docker Compose
 - [ ] **Phase 6**: CI/CD — GitHub Actions、Branch 策略

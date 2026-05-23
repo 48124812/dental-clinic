@@ -1,0 +1,9 @@
+# pnpm workspaces declaration
+# https://pnpm.io/pnpm-workspace_yaml
+#
+# Glob patterns: pnpm will treat each matching folder (that has a package.json)
+# as a workspace member. Members can depend on each other via "workspace:*".
+
+packages:
+  - "apps/*"
+  - "packages/*"
