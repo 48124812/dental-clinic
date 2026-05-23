@@ -488,6 +488,45 @@ export const metadata: Metadata = {
 };
 ```
 
+### 3.10 Client Component + Server Component 邊界
+
+對應 Phase 3.10（Sprint 1 收尾時補的 mobile nav）。
+
+**Next.js App Router 預設 Server Component**。需要互動 (state / event handler) 才轉 Client Component。**策略：把 Client 範圍縮到最小**。
+
+**`'use client'` 指令**：
+```tsx
+'use client';   // 檔案最上面
+
+import { useState } from 'react';   // 現在可以用 hooks 了
+```
+
+**Server / Client component 對照表**：
+
+| 能用什麼 | Server | Client |
+|---------|--------|--------|
+| `async / await fetch / await db` | ✅ | ❌ |
+| `useState / useReducer` | ❌ | ✅ |
+| `useEffect` | ❌ | ✅ |
+| `onClick / onChange` event handler | ❌ | ✅ |
+| `import 'fs' / 'path'` (Node API) | ✅ | ❌ |
+| `process.env.SECRET_*` (不對外洩) | ✅ | ❌（只能讀 NEXT_PUBLIC_* 開頭） |
+
+**邊界設計準則**：
+- Server 渲染父層（pages, layouts, 大部分 component）
+- 把互動的小塊抽成 Client child component
+- ❌ 整個 page 設 client → 失去 SSR / SEO 好處 + 額外送 JS 給瀏覽器
+
+**範例（我們的 Header 結構）**：
+```
+<Header>             ← Server Component（純 render）
+  <Link />             ← Server (Next.js Link 是 server-compat)
+  <Link />
+  <Link />
+  <MobileMenu />     ← Client Component (useState + onClick)
+</Header>
+```
+
 ### 3.9 Pattern Reinforcement — US-04 Services
 
 **沒新觀念，純練手。** 完全套用 3.8 的 pattern：
