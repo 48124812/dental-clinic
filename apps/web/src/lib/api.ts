@@ -33,6 +33,30 @@ export interface BusinessHoursSummary {
   weekly: BusinessHoursEntry[];
 }
 
+// ---------- Services (療程) ----------
+
+export type ServiceCategory =
+  | 'PREVENTIVE'
+  | 'RESTORATIVE'
+  | 'COSMETIC'
+  | 'ORTHODONTIC'
+  | 'SURGERY'
+  | 'PEDIATRIC';
+
+export interface Service {
+  id: string;
+  name: string;
+  category: ServiceCategory;
+  priceMin: number;
+  priceMax: number | null;
+  isNhi: boolean;
+  descriptionMd: string;
+  displayOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---------- Doctors ----------
 
 export interface Doctor {
@@ -61,6 +85,14 @@ export async function getBusinessHoursSummary(): Promise<BusinessHoursSummary> {
     throw new Error(`Failed to fetch business hours: ${res.status}`);
   }
   return res.json() as Promise<BusinessHoursSummary>;
+}
+
+export async function listServices(): Promise<Service[]> {
+  const res = await fetch(`${API_URL}/api/services`, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch services: ${res.status}`);
+  }
+  return res.json() as Promise<Service[]>;
 }
 
 export async function listDoctors(): Promise<Doctor[]> {

@@ -488,6 +488,24 @@ export const metadata: Metadata = {
 };
 ```
 
+### 3.9 Pattern Reinforcement — US-04 Services
+
+**沒新觀念，純練手。** 完全套用 3.8 的 pattern：
+
+```
+Repository → Service → Route        (backend)
+Type → Fetcher → Component → Page   (frontend)
+```
+
+**新增小知識**：
+
+| 主題 | 重點 |
+|------|------|
+| Prisma enum → JSON | Postgres enum 經 Prisma 變 string 出 API；前端用 union type (`'PREVENTIVE' \| ...`) 對接 |
+| `Map<K,V>` 保持插入順序 | 用「先預建空 bucket」技巧固定 categoryGroups 顯示順序 |
+| 「Service」這個字的命名衝突 | 業界共識：repository / service / model 都可能叫 ServiceXXX；接受疊字（`services.service.ts`） |
+| `toLocaleString('zh-TW')` | 數字 1500 → "1,500" 千分位 |
+
 ### 3.8 Dynamic Routes + 404
 
 **資料夾命名 `[id]` = 動態 segment**：
