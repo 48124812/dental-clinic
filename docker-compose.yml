@@ -1,0 +1,57 @@
+# =============================================================================
+# Local dev infrastructure for dental-clinic.
+# =============================================================================
+# 啟動：  docker compose up -d
+# 關閉：  docker compose down
+# 清除資料：docker compose down -v   (注意：-v 會刪 volume，DB 資料全沒)
+# 看 log：docker compose logs -f postgres
+#
+# 對應講義：
+# - 12-Factor Factor 4 (P.28): Backing services as attached resources
+# - 12-Factor Factor 10 (P.37): Dev/prod parity — 同樣的 Postgres major version
+# - Deployment HW Chiu P.55: 多版本 DB 共存於一台機器
+# =============================================================================
+
+services:
+  postgres:
+    # postgres:16-alpine
+    # - 16 = Postgres major version (穩定、production-ready)
+    # - alpine = 基於 Alpine Linux 的最小 image (~80MB，比 postgres:16 約 400MB 小)
+    image: postgres:16-alpine
+    container_name: dental-clinic-db
+
+    # 重啟策略：除非手動 stop，否則機器重開後自動拉起來
+    restart: unless-stopped
+
+    # 環境變數從 .env 讀取 (Compose 預設行為)
+    # 對應 12-Factor Factor 3 (P.25): 嚴格分離 config 與 code
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    # 把 container 內的 5432 port 對應到本機 5432
+    # 本機其他工具 (psql、Prisma、DBeaver) 可以連 localhost:5432
+    ports:
+      - "5432:5432"
+
+    # 資料持久化：container 刪了，這個 volume 還在
+    # 對應 Deployment HW Chiu P.80: local disk vs remote storage 的權衡
+    # 本機 dev 用 named volume；K8s 上會用 PersistentVolumeClaim
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    # Health check：Compose 知道 Postgres 是不是真的可以接連線了
+    # 對應 Observability P.99: lifecycle management 之健康檢查
+    # 之後 API service 要 depends_on postgres 並 condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  # 由 Docker 託管的 named volume
+  # 預設位置：/var/lib/docker/volumes/dental-clinic_postgres-data/_data
+  postgres-data:
