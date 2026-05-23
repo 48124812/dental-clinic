@@ -853,26 +853,47 @@ docker compose logs postgres --tail 20
 ```
 最後一行應該是 `database system is ready to accept connections`。
 
-### 🪤 PowerShell 多行 commit message 帶 `\"` 會 ParseError
+### 🪤 PowerShell 多行 commit message 各種坑
 
-**症狀**：跑 `git commit -m "..."` 跨多行、訊息含 `\"...\"`，PowerShell 報「無法辨識的語彙基元」。
+PowerShell 5.1 對 native exe 傳長字串 + 內部雙引號的處理不完美，會把字串切碎。
 
-**原因**：PowerShell 雙引號字串內 `\` 不是 escape character；要表達雙引號要用 backtick `` `" `` 或 double-double `""`。
+**最穩做法 — VS Code 編輯器**（強烈推薦多行 commit 用這個）：
+```powershell
+git commit       # 注意：不要 -m
+```
+我們已設 `core.editor = "code --wait"`：
+1. VS Code 自動開 COMMIT_EDITMSG tab
+2. 直接打 / 貼 commit message
+3. Ctrl+S 存檔
+4. Ctrl+W 關 tab → git 自動 commit
 
-**最乾淨修法 — 用 here-string `@'...'@`**：
+完全繞過 shell 解析。
+
+**次好做法 — here-string + 避免內部雙引號**：
 ```powershell
 git commit -m @'
 feat(x): summary
 
-Body can contain "any" quotes, $vars, backticks `, anything literally.
+Body without any double quotes works.
 Closes #N
 '@
 ```
 - 開頭 `@'`、結尾 `'@`
 - **`'@` 必須頂在行首**（縮排會 parse error）
-- 整段 literal，PowerShell 不解析任何字元
+- 但 **body 內最好不要有雙引號** — PowerShell 5.1 把 native exe 參數重切時會炸
 
-**另一條路** — 訊息寫到檔案、用 `git commit -F file.txt` 或 `git commit -F -` 從 stdin 讀。
+**也可以 — 訊息寫到檔案，從檔案讀**：
+```powershell
+git commit -F commit-msg.txt
+```
+
+**錯誤示範**（會炸的）：
+```powershell
+git commit -m "summary
+
+Body with \"escaped quotes\"   # \" 不是 PS escape，整段斷在這裡
+"
+```
 
 ### 🪤 PowerShell 5.1 不認識 `&&` / `||`
 
@@ -961,6 +982,17 @@ git commit -m "..."              # commit
 git reset --hard origin/main     # 本地強制對齊雲端 main（**不可逆**，會丟改動）
 git reset --hard HEAD~1          # 退回前一個 commit（**不可逆**）
 ```
+
+### Stash（臨時口袋，切 branch 救星）
+```powershell
+git stash                # 暫存所有 uncommitted 改動 + 還原 working tree
+git stash -u             # 連 untracked file 也一起 stash
+git stash list           # 看口袋有什麼（最新 stash@{0}）
+git stash pop            # 拿出最新的（同時移除）
+git stash apply          # 拿出來但保留在 stack
+git stash drop           # 丟棄最新的
+```
+**典型用法**：在 branch A 寫到一半，需切 branch B 改別的事 → stash → switch B → 改完 → switch A → stash pop。
 
 ### Push / Pull
 ```powershell
