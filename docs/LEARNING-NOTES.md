@@ -490,6 +490,44 @@ export const metadata: Metadata = {
 
 ## Phase 4 — 12-Factor 強化
 
+### 4.4 Shared Workspace Package (`packages/shared`)
+
+**痛點**：BE 與 FE 對同一個 entity 各寫一份 type interface → 容易飄移。
+
+**解法**：第三個 pnpm workspace package，只 export type、沒有 runtime code，兩邊都 import。
+
+**結構**：
+```
+packages/shared/
+├── package.json          name: @dental-clinic/shared, "workspace:*" 可被引用
+├── tsconfig.json         extends 根 tsconfig.base.json
+└── src/
+    ├── index.ts          re-export all types
+    └── types/*.ts        DTO 定義（每個 entity 一檔）
+```
+
+**consumer dep 宣告**：
+```json
+{ "dependencies": { "@dental-clinic/shared": "workspace:*" } }
+```
+`workspace:*` 告訴 pnpm「從 monorepo 內找這個 package、別去 npm 下載」。
+
+**Next.js 額外設定**：`transpilePackages: ['@dental-clinic/shared']`
+- Next 預設不會把 node_modules 內的 TS 跑 transpile
+- workspace 透過 symlink 進 node_modules，但 source 是 .ts
+- 加這設定告訴 Next.js 把這 package 視為自家 source 一起編
+
+**DTO (Data Transfer Object) 命名與設計**：
+- DTO = 「網路傳輸格式」，不是「DB 內部格式」
+- Date 在 DB 是 Date 物件，但 JSON.stringify 後變 ISO string
+- DTO type **直接寫 `string`** 而不是 Date，反映實際 wire format
+- 避免「FE 拿到 string 但 type 寫 Date → runtime 跟型別不一致」的 bug
+
+**type-only 套件的好處**：
+- 不影響 bundle size（編譯後消失）
+- 不會引入 framework 衝突（Next/Fastify/Vitest 都能 import）
+- 跨 monorepo borders 安全
+
 ### 4.3 Liveness vs Readiness Probes
 
 **核心區別**：
