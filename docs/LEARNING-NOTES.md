@@ -490,6 +490,60 @@ export const metadata: Metadata = {
 
 ## Phase 4 — 12-Factor 強化
 
+### 4.2 Vitest + Pure Function Tests
+
+**Vitest** = Vite-原生的測試框架，速度快、ESM 友善、API 跟 Jest 幾乎一樣。
+
+**Setup**（每個 app 一份）：
+```
+apps/api/vitest.config.ts       (環境 = node)
+apps/api/src/**/*.test.ts       (測試檔放原始碼旁)
+apps/web/vitest.config.ts       (環境 = node 或 jsdom)
+```
+
+**Scripts**：
+```json
+{ "test": "vitest run",  "test:watch": "vitest" }
+```
+- `vitest run` = 跑一次就退（CI 用）
+- `vitest` = watch mode（dev 用，改檔自動重跑）
+
+**測試模板**：
+```ts
+import { describe, it, expect } from 'vitest';
+
+describe('functionName', () => {
+  it('describes one specific behavior', () => {
+    expect(actual).toBe(expected);
+  });
+});
+```
+
+**重要設計準則 — 從 pure function 開始測**：
+- Pure function = 給同樣 input 永遠回同樣 output、沒副作用（沒 DB、沒 fetch、沒讀檔）
+- 最容易、最快、最穩。新手測試從這裡開始。
+- 不 pure 的 function 要測，先**重構**把純邏輯抽出來
+
+**範例**：我們把 `computeTodayStatus` 從 service.ts 抽到 `lib/business-hours.ts`，因為 service.ts 連帶 import prisma → 測試會被 DATABASE_URL 卡住。Refactor 後測試只 import lib，跑 < 100ms。
+
+**Dependency Injection 友善**：
+```ts
+// ❌ 不友善：function 內部呼叫 new Date()
+function isOpen(weekly): boolean {
+  const now = new Date();   // 永遠拿真實時間，測試無法控制
+}
+
+// ✅ 友善：時間從外部注入
+function isOpen(weekly, now: Date): boolean {
+  // ...
+}
+```
+注入後測試可以隨意指定「現在是週一 10 點」、「週日午夜」等情境。
+
+**對應講義**：
+- 12-Factor SDLC P.61 test pyramid（80% unit / 15% integration / 5% E2E）
+- 12-Factor SDLC P.88 test-first prompting
+
 ### 4.1 Typed Config with Zod (fail-fast on bad env)
 
 **問題**：`process.env.X` 永遠是 `string | undefined`，散落 5–10 個檔案、沒驗證、忘記設 prod 才發現。
