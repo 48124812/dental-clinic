@@ -490,6 +490,47 @@ export const metadata: Metadata = {
 
 ## Phase 4 — 12-Factor 強化
 
+### 4.3 Liveness vs Readiness Probes
+
+**核心區別**：
+
+| Probe | URL | K8s 看到失敗 | 用途 |
+|-------|-----|-----------|------|
+| Liveness | `/health` | **kill + restart pod** | process 卡死 → 重啟 |
+| Readiness | `/ready` | **暫時從 LB 移除（不重啟）** | DB 斷線 / 熱機中 → 暫不收 traffic |
+
+**Status code 規矩**：
+- 失敗回 **503** Service Unavailable（不是 500！）
+- 503 = 「retry 我」；500 = 「我壞了」。LB / cache / client 行為完全不同
+
+**Liveness 鐵則**：絕對不要在 `/health` 裡查 DB / 第三方。一個外部依賴掛了，全部 pod 同時被殺 → 雪崩。
+
+**Readiness 範圍**：
+- ✅ DB ping (`SELECT 1`)
+- ✅ Cache ping
+- ✅ 重要 downstream API HEAD
+- ❌ 跑昂貴 query（必須 < 1s）
+- ❌ 跑業務邏輯
+- ❌ 寫資料
+
+**驗證方式**：
+```powershell
+# Happy path
+irm http://localhost:3001/ready
+# 預期 200 + { status: 'ready', checks: { db: { ok: true, latencyMs: <50 } } }
+
+# 故意把 DB 關掉看 503
+docker compose stop postgres
+irm http://localhost:3001/ready -SkipHttpErrorCheck
+# 預期 503 + { status: 'not-ready', checks: { db: { ok: false, error: '...' } } }
+
+# 同時間 /health 仍是 200
+irm http://localhost:3001/health
+# liveness OK — process 還活著、只是依賴掛了
+```
+
+**對應講義**：Observability P.99–103、CI/CD P.41。
+
 ### 4.2 Vitest + Pure Function Tests
 
 **Vitest** = Vite-原生的測試框架，速度快、ESM 友善、API 跟 Jest 幾乎一樣。
