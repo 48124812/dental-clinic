@@ -1,4 +1,5 @@
 import { buildApp } from './app.js';
+import { config } from './config.js';
 
 /**
  * Bootstrap：實際綁 port 啟動服務。
@@ -10,9 +11,8 @@ import { buildApp } from './app.js';
  */
 const app = await buildApp();
 
-// 從環境變數讀 port / host（Factor 3: config from environment）
-const port = Number(process.env.PORT ?? 3001);
-const host = process.env.HOST ?? '0.0.0.0';
+const port = config.PORT;
+const host = config.HOST;
 
 // Graceful shutdown handler
 // 對應 12-Factor Factor 9 (P.35): "Graceful shutdown on SIGTERM"
