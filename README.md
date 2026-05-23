@@ -170,8 +170,8 @@ docker compose down -v                         # 停 + 刪資料 volume
 - [x] **Phase 1**: Design Thinking — Empathy maps / User stories / AC / MVP
 - [x] **Phase 2**: 專案啟動 — Repo / Branch protection / Product Backlog / Sprint 1 plan
 - [x] **Phase 3**: Sprint 1 MVP — 首頁、醫師、療程、RWD (4 stories closed)
-- [x] **Phase 4**: 12-Factor 強化 — Zod config / Vitest / Readiness probe / Shared types
-- [ ] **Phase 5**: Containerize — Dockerfile + Compose full stack
+- [x] **Phase 4**: 12-Factor 強化 — Zod config / Vitest / /ready probe / Shared types / ADRs
+- [ ] **Phase 5**: Containerize — Dockerfile + Compose full stack ← 下次接續
 - [ ] **Phase 6**: CI/CD with GitHub Actions
 - [ ] **Phase 7**: Deploy (PaaS → VM → K8s)
 - [ ] **Phase 8**: Observability (Prometheus / Grafana / Loki / SLO)
