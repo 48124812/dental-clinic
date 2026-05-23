@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { config } from '../config.js';
 
 /**
  * Prisma Client singleton.
@@ -13,7 +14,7 @@ import { PrismaClient } from '@prisma/client';
  */
 export const prisma = new PrismaClient({
   log:
-    process.env.LOG_LEVEL === 'debug'
+    config.LOG_LEVEL === 'debug' || config.LOG_LEVEL === 'trace'
       ? ['query', 'info', 'warn', 'error']
       : ['warn', 'error'],
 });

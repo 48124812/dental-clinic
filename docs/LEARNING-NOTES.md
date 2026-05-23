@@ -488,6 +488,35 @@ export const metadata: Metadata = {
 };
 ```
 
+## Phase 4 — 12-Factor 強化
+
+### 4.1 Typed Config with Zod (fail-fast on bad env)
+
+**問題**：`process.env.X` 永遠是 `string | undefined`，散落 5–10 個檔案、沒驗證、忘記設 prod 才發現。
+
+**解法**：用 Zod schema 在 app 啟動時 parse 一次 process.env，產出 typed `config` 物件。錯就直接 `process.exit(1)`。
+
+**模式**：
+```ts
+const ConfigSchema = z.object({
+  PORT: z.coerce.number().int().positive().default(3001),
+  DATABASE_URL: z.string().url(),                   // 必填、要是 URL
+  LOG_LEVEL: z.enum(['debug', 'info', ...]).default('info'),
+  CORS_ORIGIN: z.string().default('http://...').transform(s => s.split(',')),
+});
+
+export const config = ConfigSchema.parse(process.env);  // 啟動就驗
+```
+
+**用法**：之後所有檔案都 `import { config } from './config.js'`，**不再讀 `process.env`**。
+
+**好處**：
+- TypeScript 知道型別（`config.PORT` 是 `number`，不用 `Number()` 轉）
+- 缺欄位 → 啟動即掛、印清楚錯誤、K8s 看到 exit 1 會 restart 並亮紅燈
+- 「prod 跑了 30 秒後第一個 request 才炸」這種地獄不會發生
+
+**對應 12-Factor**：Factor 3 (Config) + Factor 9 (Disposability — fail-fast 也是 graceful 的一種)。
+
 ### 3.10 Client Component + Server Component 邊界
 
 對應 Phase 3.10（Sprint 1 收尾時補的 mobile nav）。
@@ -672,6 +701,29 @@ $d | Format-List
 docker compose logs postgres --tail 20
 ```
 最後一行應該是 `database system is ready to accept connections`。
+
+### 🪤 PowerShell 5.1 不認識 `&&` / `||`
+
+**症狀**：`在這個版本中 '&&' 語彙基元不是有效的陳述式分隔符號。`
+
+**原因**：Bash / Linux shell 用 `cmd1 && cmd2` 串接，但 Windows PowerShell 5.1 不支援這個語法。PowerShell 7 (`pwsh`) 才支援。
+
+**修法**：
+- **無條件串接**：用 `;` 替代 `&&`
+  ```powershell
+  git switch main ; git pull ; git fetch --prune
+  ```
+- **條件串接**（前面成功才跑下一條）：
+  ```powershell
+  cmd1 ; if ($?) { cmd2 }
+  ```
+- **最直觀**：分行寫
+  ```powershell
+  git switch main
+  git pull
+  git fetch --prune
+  ```
+  好處：每行 output 立即看到，debug 容易。
 
 ### 🪤 Branch protection 擋下 push to main
 

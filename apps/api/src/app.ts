@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { businessHoursRoutes } from './routes/business-hours.js';
 import { doctorsRoutes } from './routes/doctors.js';
@@ -16,7 +17,7 @@ import { servicesRoutes } from './routes/services.js';
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
-      level: process.env.LOG_LEVEL ?? 'info',
+      level: config.LOG_LEVEL,
     },
     // 對應 12-Factor Factor 11 (P.38): logs as event streams
     // Fastify 預設用 pino，已是 JSON 結構化 log + 寫到 stdout，符合 cloud-native 標準
@@ -24,9 +25,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // CORS — 允許前端 (localhost:3000) 跨網域呼叫 API (localhost:3001)
   // 對應講義：System Architecture 安全性段落
-  // production 會收緊白名單，dev 先寬鬆
+  // production 會收緊白名單；config.CORS_ORIGIN 已是 string[]
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN?.split(',') ?? ['http://localhost:3000'],
+    origin: config.CORS_ORIGIN,
     credentials: true,
   });
 
