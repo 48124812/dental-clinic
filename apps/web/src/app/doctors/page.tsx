@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: '光明牙醫診所專業醫師團隊 — 一般牙科、植牙、矯正、美學牙科、兒童牙科。',
 };
 
+export const dynamic = 'force-dynamic';
+
 /**
  * /doctors — 醫師列表頁
  *
