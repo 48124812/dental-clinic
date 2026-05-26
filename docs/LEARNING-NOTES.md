@@ -488,6 +488,60 @@ export const metadata: Metadata = {
 };
 ```
 
+## Phase 5 — Containerize
+
+### 5.1 apps/api Dockerfile (Multi-stage Build)
+
+**Image vs Container vs Layer**：
+- Image = 凍結的 app + runtime + libs（不可變）
+- Container = image 在跑的實例
+- Layer = Dockerfile 每行產生一層；layers 可被 cache 與其他 image 共用
+
+**Multi-stage build 的價值**：
+- 一個 Dockerfile 裡多個 `FROM ... AS X` 階段
+- builder 階段：有 toolchain、跑 build
+- runtime 階段：只 COPY 上一階段的 build 產物
+- 結果：image 從 400MB 縮到 ~100MB、source code 不洩漏
+
+**Layer cache 順序很重要**：
+```dockerfile
+COPY package.json pnpm-lock.yaml ./  # 改 deps 才 bust
+RUN pnpm install
+COPY src ./src                        # 改 code 只 bust 這層
+```
+順序顛倒會讓改一行 code 就重裝全部 deps。
+
+**pnpm monorepo Docker 重點**：
+- Build context = repo 根（不是 apps/api）— 為了讓 docker 看到 pnpm-lock.yaml
+- 加 `--filter @dental-clinic/api...` 結尾的 `...` 包含 transitive deps
+- 用 `pnpm deploy --filter=X --prod /deploy` 攤平 symlink 為 flat node_modules
+- 加 `corepack enable` 啟用 root package.json 鎖的 pnpm 版本
+
+**Alpine + Prisma 的小坑**：
+- Prisma 需要 OpenSSL；Alpine 預設有但有時版本不對
+- `RUN apk add --no-cache openssl` 顯式裝以確保 runtime engine 找得到
+
+**安全性**：
+- `USER node` — 不要用 root 跑 app（Alpine 自帶 `node` user uid 1000）
+- `.dockerignore` 擋掉 .env、.git、node_modules 等
+
+**HEALTHCHECK 指令**：
+- Dockerfile 內建的 health check，獨立於 K8s readinessProbe
+- 用於本機 / docker compose 判斷 container 是否健康
+- 我們用 `node -e "fetch(...)"` 因為 alpine 沒裝 curl
+
+### 常用 Docker 指令
+```powershell
+docker build -f apps/api/Dockerfile -t dental-clinic/api:dev .  # build (注意最後的 . = build context)
+docker images dental-clinic/api                                  # 看 image
+docker run --rm -p 3001:3001 -e DATABASE_URL=... dental-clinic/api:dev  # 跑
+docker ps                                                        # 看跑中 container
+docker logs <container>                                          # 看 log
+docker exec -it <container> sh                                   # 進 container shell
+docker rmi <image>                                              # 刪 image
+docker system prune -a                                          # 大掃除（小心）
+```
+
 ## Phase 4 — 12-Factor 強化
 
 ### 4.5 README + ADR + Production Build Verification

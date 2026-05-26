@@ -1,0 +1,61 @@
+# apps/api/.dockerignore
+#
+# 注意：Docker 的 .dockerignore 是相對於 build context (我們是 repo 根目錄)。
+# 但 docker build 會用「離 Dockerfile 最近」的 .dockerignore，所以這份檔的路徑
+# 是從 repo 根目錄看的。
+#
+# 沒有 .dockerignore 的話 build 會把 node_modules / .git / 一堆垃圾都送進 builder，
+# 變慢還可能洩密 (例如 .env)。
+
+# ---- never copy any node_modules ----
+**/node_modules
+
+# ---- build artifacts ----
+**/dist
+**/.next
+**/.turbo
+**/build
+**/out
+**/coverage
+
+# ---- env / secrets ----
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ---- Git / CI ----
+.git
+.github
+.gitignore
+.gitattributes
+
+# ---- IDE / OS ----
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- logs / tmp ----
+**/*.log
+**/.cache
+
+# ---- Docker stuff (不要遞迴複製) ----
+**/Dockerfile
+**/.dockerignore
+
+# ---- docs / 不是 runtime 需要 ----
+**/*.md
+docs/
+scripts/
+
+# ---- 其他 app (web) — 我們只 build api，但 pnpm install 需要看到 web/shared
+#       的 package.json 才能用 frozen-lockfile，所以只排除 src/public 等 ----
+apps/web/src
+apps/web/public
+apps/web/.next
+apps/web/node_modules
+# 注意：保留 apps/web/package.json 給 pnpm install 用
+
+# ---- TypeScript build info ----
+**/*.tsbuildinfo
