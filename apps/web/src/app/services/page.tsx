@@ -9,6 +9,8 @@ export const metadata: Metadata = {
     '光明牙醫診所完整療程項目與價格區間：定期檢查、植牙、根管、矯正、美學、兒童牙科。健保與自費項目清楚標示。',
 };
 
+export const dynamic = 'force-dynamic';
+
 /** Category 顯示順序（醫療常見的「預防 → 修復 → 美學」邏輯） */
 const CATEGORY_ORDER: ServiceCategory[] = [
   'PREVENTIVE',

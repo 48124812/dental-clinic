@@ -490,6 +490,76 @@ export const metadata: Metadata = {
 
 ## Phase 5 — Containerize
 
+### 5.2.X 雷區記錄 — Next.js + Docker + workspace
+
+走完整個 Phase 5.2 採過 4 個雷，整理如下供日後參考：
+
+| 雷 | 症狀 | 修法 |
+|----|-----|-----|
+| `import.meta.url` in next.config.ts | build 報 `exports is not defined in ES module scope` | 改用 `process.cwd()`，apps/web 沒設 `"type": "module"`，Next 把 .ts compile 成 CJS |
+| Next 16.2.x prerender bug | `Invariant: Expected workStore` 於 `/_global-error` | 降到 Next 16.1.x（仍踩） |
+| `npm install -g next` 全域裝 | 同樣 `workStore` bug | 不要全域裝，用 workspace 裝的 next |
+| `pnpm exec` / npx via PATH | 找不到 .bin 或解析錯 peer deps | **直接走絕對路徑：`node /repo/node_modules/next/dist/bin/next build`** |
+
+**Build with workspace-installed next, not globally installed**：
+```dockerfile
+# 不要這樣（找不到 peer deps）：
+# RUN npm install -g next@16
+# RUN cd apps/web && next build
+
+# 要這樣（直接呼叫 hoist 後的 next bin）：
+RUN cd apps/web && node /repo/node_modules/next/dist/bin/next build
+```
+
+**force-dynamic on all data-fetching pages**：
+```tsx
+export const dynamic = 'force-dynamic';
+```
+- 我們的頁面本來就跟即時資料相關，不該 prerender
+- 加在 4 個頁面：home / doctors / [id] / services
+- 順便繞過 Next 16 的部分 prerender bug
+
+### 5.2 apps/web Dockerfile (Next.js standalone)
+
+**Next.js standalone output**：
+- `output: 'standalone'` in next.config.ts
+- 產出 `.next/standalone/` 含一個 `server.js` 跟最小化 node_modules
+- runtime container 只 copy 這個 + `.next/static` + `public`
+- 比 copy 全套 .next + node_modules 小 5–10 倍
+
+**Monorepo 必加 `outputFileTracingRoot`**：
+```ts
+outputFileTracingRoot: path.resolve(__dirname, '../..')
+```
+告訴 Next.js 從 monorepo 根追蹤 file deps，不會漏掉 workspace 內共用 package。
+
+**Standalone 後的檔案結構**：
+```
+.next/standalone/
+├── apps/web/
+│   ├── server.js          ← entry
+│   ├── package.json
+│   └── .next/
+├── packages/shared/...    ← workspace deps 一起進來
+├── node_modules/          ← 只必要的
+└── package.json
+```
+
+**NEXT_PUBLIC_* 是 build-time，不是 runtime**：
+- `NEXT_PUBLIC_*` 變數會在 `next build` 時被烤進 client-side JS bundle
+- Docker build 時用 `ARG NEXT_PUBLIC_API_URL=...` + `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL`
+- 不同環境 (staging vs prod) → build 不同 image 或 build-arg 覆寫
+- Server-side env 才是 runtime（NODE_ENV、HOSTNAME、PORT、不含 NEXT_PUBLIC_ 的變數）
+
+**`HOSTNAME=0.0.0.0`** — Next standalone server 預設聽 localhost；container 外要連到必須改 0.0.0.0。
+
+**Build args 範例**：
+```powershell
+docker build -f apps/web/Dockerfile `
+  --build-arg NEXT_PUBLIC_API_URL=http://api:3001 `
+  -t dental-clinic/web:dev .
+```
+
 ### 5.1 apps/api Dockerfile (Multi-stage Build)
 
 **Image vs Container vs Layer**：

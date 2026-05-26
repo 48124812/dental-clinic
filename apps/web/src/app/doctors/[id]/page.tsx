@@ -14,6 +14,8 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 /**
  * 動態 SEO：每位醫師有自己的 <title> 與 description。
  * 對應 US-11 (SEO)：搜「植牙 王大明」可能匹配到這頁。
