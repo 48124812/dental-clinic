@@ -42,6 +42,11 @@ const ConfigSchema = z.object({
   // 之後 Phase 6 CI 會把 git SHA 注進來 → /health 能告訴你跑的是哪版
   APP_VERSION: z.string().default('dev'),
 
+  // ----- Transactional email (optional for local/sandbox use) -----
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM: z.string().email().default('onboarding@resend.dev'),
+  EMAIL_TEST_RECIPIENT: z.string().email().optional(),
+
   // ----- Node env -----
   // production: prod 行為（壓縮 log、嚴格 mode）
   // development / test: dev/test 行為

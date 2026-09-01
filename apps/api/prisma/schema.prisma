@@ -40,8 +40,101 @@ model Doctor {
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  appointments  Appointment[]
 
   @@index([active, displayOrder])  // 查詢時最常用：active doctors sorted by order
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CHECKED_IN
+  NO_SHOW
+  CANCELLED
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(STAFF)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Appointment {
+  id                String            @id @default(cuid())
+  referenceCode     String            @unique
+  doctorId          String
+  doctor            Doctor            @relation(fields: [doctorId], references: [id])
+  startsAt          DateTime
+  patientName       String
+  patientPhone      String
+  nationalHealthId  String
+  patientEmail      String
+  status            AppointmentStatus @default(BOOKED)
+  cancelledAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  emailDeliveries   EmailDelivery[]
+
+  @@unique([doctorId, startsAt])
+  @@index([startsAt, status])
+}
+
+model EmailDelivery {
+  id            String              @id @default(cuid())
+  appointmentId String
+  appointment   Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  kind          String
+  recipient     String
+  status        EmailDeliveryStatus @default(PENDING)
+  attempts      Int                 @default(0)
+  providerId    String?
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+}
+
+model CaseStudy {
+  id          String   @id @default(cuid())
+  title       String
+  treatment   String
+  summary     String
+  beforeImage String
+  afterImage  String
+  displayOrder Int     @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // -----------------------------------------------------------------------------

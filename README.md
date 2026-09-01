@@ -27,6 +27,19 @@
 
 ## Current delivery status
 
+- **Product increment (in progress):** Three-step appointment booking, slot
+  conflict protection, reference-code lookup/cancellation, and a durable email
+  outbox are implemented and validated locally. The email sender is safe for
+  Resend sandbox use and remains queued until its environment variables are set.
+- **Sandbox email setup:** configure `RESEND_API_KEY`,
+  `RESEND_FROM=onboarding@resend.dev`, and `EMAIL_TEST_RECIPIENT` with the
+  email verified in Resend. Do not commit these values; add them to Render's
+  environment settings instead.
+- **Still requiring configuration or follow-up:** staff/admin authentication,
+  actual admin CRUD UI, case-study assets, Loki, and Alertmanager email routing
+  are not marked complete until their credentials/assets or provider settings
+  exist.
+
 - **Live demo:** [Web](https://dental-clinic-web.onrender.com) · [API health](https://dental-clinic-api-ylv9.onrender.com/health)
 - **Delivery pipeline:** Pull request CI → merge to `main` → Render deployment → scheduled/manual API smoke test.
 - **Local Kubernetes:** API and Web each run two ready replicas; migration runs as a Job; Prometheus and Grafana verify API metrics locally.

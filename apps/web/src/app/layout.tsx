@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
  * Next 會把這些放進 <head>：title、description、og:image 等。
  */
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dental-clinic-web.onrender.com'),
+  alternates: { canonical: '/' },
+  robots: { index: true, follow: true },
   title: {
     default: "光明牙醫診所 — 讓笑容更燦爛",
     template: "%s | 光明牙醫診所",
@@ -32,6 +35,7 @@ export const metadata: Metadata = {
     locale: "zh_TW",
     type: "website",
   },
+  twitter: { card: 'summary', title: '光明牙醫診所', description: '安心、專業的口腔照護。' },
 };
 
 export default function RootLayout({
