@@ -22,6 +22,7 @@ export function Header() {
           <Link href="/doctors" className="hover:text-sky-600 transition">醫師團隊</Link>
           <Link href="/services" className="hover:text-sky-600 transition">服務項目</Link>
           <Link href="/appointments/new" className="hover:text-sky-600 transition">線上預約</Link>
+          <Link href="/cases" className="hover:text-sky-600 transition">療程案例</Link>
         </nav>
 
         {/* Mobile hamburger (< sm) */}
