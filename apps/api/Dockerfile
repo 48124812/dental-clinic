@@ -72,6 +72,7 @@ COPY --chown=node:node --from=builder /repo/node_modules ./node_modules
 COPY --chown=node:node --from=builder /repo/apps/api/package.json ./apps/api/
 COPY --chown=node:node --from=builder /repo/apps/api/dist ./apps/api/dist
 COPY --chown=node:node --from=builder /repo/apps/api/prisma ./apps/api/prisma
+COPY --chown=node:node --from=builder /repo/apps/api/scripts/start-container.sh ./apps/api/start-container.sh
 
 # 安全性：不要用 root 跑 app（node:alpine 自帶 node user, uid 1000）
 USER node
@@ -87,4 +88,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://localhost:3001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # 直接跑編譯後的 JS — 不走 pnpm/npm script（container 的 env 由 docker 注入）
-CMD ["node", "dist/server.js"]
+CMD ["sh", "./start-container.sh"]
