@@ -50,6 +50,8 @@ const ConfigSchema = z.object({
   // ----- Staff dashboard -----
   STAFF_DASHBOARD_TOKEN: z.string().min(24).optional(),
   STAFF_EMAIL: z.string().email().default('staff@local.invalid'),
+  ADMIN_DASHBOARD_TOKEN: z.string().min(24).optional(),
+  ADMIN_EMAIL: z.string().email().default('admin@local.invalid'),
 
   // ----- Node env -----
   // production: prod 行為（壓縮 log、嚴格 mode）
