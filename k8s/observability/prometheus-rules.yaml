@@ -22,7 +22,7 @@ data:
                 sum(rate(dental_clinic_http_requests_total{status_code=~"5.."}[5m]))
                 /
                 clamp_min(sum(rate(dental_clinic_http_requests_total[5m])), 1)
-              ) > 0.05
+              ) > 0.01
             for: 5m
             labels:
               severity: warning
