@@ -28,7 +28,13 @@ export type {
   ServiceCategory,
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// Server Components can use the Docker service name, while browser-visible
+// requests keep using the public URL. In local non-container development the
+// public URL remains the fallback.
+const API_URL =
+  process.env.INTERNAL_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  'http://localhost:3001';
 
 // ---------- Fetchers ----------
 

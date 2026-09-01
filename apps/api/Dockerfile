@@ -68,10 +68,10 @@ WORKDIR /app
 #   - hoisted node_modules（含 prisma generate 產的 .prisma/client）
 #   - apps/api 的 dist + prisma schema (Prisma engine runtime 會讀)
 #   - package.json (Node 看 "type": "module")
-COPY --from=builder /repo/node_modules ./node_modules
-COPY --from=builder /repo/apps/api/package.json ./apps/api/
-COPY --from=builder /repo/apps/api/dist ./apps/api/dist
-COPY --from=builder /repo/apps/api/prisma ./apps/api/prisma
+COPY --chown=node:node --from=builder /repo/node_modules ./node_modules
+COPY --chown=node:node --from=builder /repo/apps/api/package.json ./apps/api/
+COPY --chown=node:node --from=builder /repo/apps/api/dist ./apps/api/dist
+COPY --chown=node:node --from=builder /repo/apps/api/prisma ./apps/api/prisma
 
 # 安全性：不要用 root 跑 app（node:alpine 自帶 node user, uid 1000）
 USER node
