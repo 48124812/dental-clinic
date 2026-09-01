@@ -1,0 +1,51 @@
+# apps/web/.dockerignore (used when building apps/web Dockerfile from repo root)
+
+# ---- never copy node_modules ----
+**/node_modules
+
+# ---- build artifacts ----
+**/.next
+**/.turbo
+**/dist
+**/build
+**/out
+**/coverage
+
+# ---- env / secrets ----
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ---- Git / CI ----
+.git
+.github
+.gitignore
+.gitattributes
+
+# ---- IDE / OS ----
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- logs / tmp ----
+**/*.log
+**/.cache
+
+# ---- Docker ----
+**/Dockerfile
+**/.dockerignore
+
+# ---- docs / not runtime ----
+**/*.md
+docs/
+scripts/
+
+# ---- other apps (api source not needed for web build, but keep package.json) ----
+apps/api/src
+apps/api/prisma
+apps/api/dist
+
+# ---- TS build info ----
+**/*.tsbuildinfo

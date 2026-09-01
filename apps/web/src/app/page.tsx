@@ -3,6 +3,11 @@ import { getBusinessHoursSummary } from '@/lib/api';
 import { TodayStatusCard } from '@/components/TodayStatusCard';
 import { WeeklyHoursTable } from '@/components/WeeklyHoursTable';
 
+// 強制 dynamic：每次 request 才 fetch + render（不在 build time prerender）
+// 必要原因：(1) 今日營業狀態跟當下時間相關，prerender 沒意義；
+//          (2) workaround Next 16.2.x /_global-error prerender bug
+export const dynamic = 'force-dynamic';
+
 /**
  * 首頁 — US-01「牙痛病患在首頁看到當日營業資訊」
  *
