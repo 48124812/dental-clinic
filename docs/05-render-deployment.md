@@ -21,9 +21,8 @@ https://<dental-clinic-api>.onrender.com/health
 https://<dental-clinic-api>.onrender.com/ready
 ```
 
-The API runs `prisma migrate deploy` before starting because Render's
-pre-deploy command is a paid feature. The Blueprint uses `/bin/sh -c` so the
-migration and Fastify startup run as two sequential commands.
+The API runs `prisma migrate deploy` from its container startup script before
+starting Fastify because Render's pre-deploy command is a paid feature.
 
 ## Continuous deployment
 
