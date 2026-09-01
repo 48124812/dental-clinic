@@ -5,6 +5,7 @@ import { healthRoutes } from './routes/health.js';
 import { businessHoursRoutes } from './routes/business-hours.js';
 import { doctorsRoutes } from './routes/doctors.js';
 import { servicesRoutes } from './routes/services.js';
+import { registerMetrics } from './observability/metrics.js';
 
 /**
  * App factory.
@@ -30,6 +31,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     origin: config.CORS_ORIGIN,
     credentials: true,
   });
+
+  registerMetrics(app);
 
   // 註冊路由
   await app.register(healthRoutes);

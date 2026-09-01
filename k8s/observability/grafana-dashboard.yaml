@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard
+  namespace: dental-clinic
+data:
+  dental-clinic-overview.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "panels": [
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "id": 1,
+          "title": "API request rate",
+          "type": "timeseries",
+          "targets": [{"expr": "sum(rate(dental_clinic_http_requests_total[5m]))", "refId": "A"}]
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "id": 2,
+          "title": "API 5xx error ratio",
+          "type": "timeseries",
+          "targets": [{"expr": "sum(rate(dental_clinic_http_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(dental_clinic_http_requests_total[5m])), 1)", "refId": "A"}]
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+          "id": 3,
+          "title": "API p95 request latency",
+          "type": "timeseries",
+          "targets": [{"expr": "histogram_quantile(0.95, sum(rate(dental_clinic_http_request_duration_seconds_bucket[5m])) by (le))", "refId": "A"}]
+        }
+      ],
+      "schemaVersion": 41,
+      "title": "Dental Clinic API Overview",
+      "version": 1
+    }

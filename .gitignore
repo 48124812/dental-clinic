@@ -18,6 +18,7 @@ coverage/
 .env
 .env.*
 k8s/base/database-secret.yaml
+k8s/observability/grafana-secret.yaml
 .env.local
 .env.*.local
 !.env.example
