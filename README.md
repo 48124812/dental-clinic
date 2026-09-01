@@ -25,6 +25,26 @@
 | Kubernetes | Docker Desktop Kubernetes deployed and locally verified |
 | Phase progress | Phase 7 complete; Phase 8 core monitoring complete, Loki and external alert delivery pending |
 
+## Current delivery status
+
+- **Live demo:** [Web](https://dental-clinic-web.onrender.com) · [API health](https://dental-clinic-api-ylv9.onrender.com/health)
+- **Delivery pipeline:** Pull request CI → merge to `main` → Render deployment → scheduled/manual API smoke test.
+- **Local Kubernetes:** API and Web each run two ready replicas; migration runs as a Job; Prometheus and Grafana verify API metrics locally.
+- **Release:** [v0.1.0](https://github.com/48124812/dental-clinic/releases/tag/v0.1.0)
+
+## Next product backlog
+
+1. **P0 — #3: Three-step online appointment.** Establish the `Appointment`
+   model, availability validation, booking API, and patient-facing booking UI.
+2. **P0 — #6: Today's appointment dashboard.** Builds on #3 so clinic staff
+   can view and update appointment attendance.
+3. **P0 — #7: Admin doctor and service management.** Replace demo seed data
+   with authenticated management workflows.
+4. **P0 — #8: Booking confirmation email.** Add a transactional email provider
+   after the appointment creation event exists.
+5. **P1 — #11, #12, #13:** Patient self-service, SEO, and the remaining
+   observability work (Loki plus external alert delivery).
+
 ---
 
 ## 🚀 第一次跑（從 clone 開始 5 分鐘上手）
