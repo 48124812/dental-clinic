@@ -31,12 +31,12 @@ After the API image containing `/metrics` is deployed, open the tools locally:
 
 ```powershell
 kubectl -n dental-clinic port-forward service/prometheus 9090:9090
-kubectl -n dental-clinic port-forward service/grafana 3000:3000
+kubectl -n dental-clinic port-forward service/grafana 3002:3000
 ```
 
 - Prometheus: <http://127.0.0.1:9090/targets> and
   <http://127.0.0.1:9090/alerts>
-- Grafana: <http://127.0.0.1:3000> using the generated `admin` password.
+- Grafana: <http://127.0.0.1:3002> using the generated `admin` password.
   The **Dental Clinic API Overview** dashboard is provisioned automatically.
 
 ## Alerting scope
