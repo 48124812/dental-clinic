@@ -21,6 +21,7 @@
 | Container| Docker + Docker Compose → Kubernetes (Phase 7) |
 | CI/CD    | GitHub Actions (Phase 6) |
 | Observability | Prometheus + Grafana + Loki (Phase 8) |
+| Deployment | Render (live) + Kubernetes manifests (cluster-ready) |
 
 ---
 

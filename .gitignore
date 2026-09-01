@@ -16,6 +16,8 @@ coverage/
 
 # ====== Environment variables (NEVER commit secrets) ======
 .env
+.env.*
+k8s/base/database-secret.yaml
 .env.local
 .env.*.local
 !.env.example

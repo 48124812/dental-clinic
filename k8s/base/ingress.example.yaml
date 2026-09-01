@@ -1,0 +1,18 @@
+# Apply only after installing an Ingress controller and replacing the host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dental-clinic
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dental-clinic.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
