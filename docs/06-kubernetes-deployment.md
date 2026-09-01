@@ -44,3 +44,19 @@ production rollout, replace each `latest` image in `k8s/base` with a tested
 
 The API and Web Deployments include readiness and liveness probes. The API is
 exposed only inside the cluster; the Web Service is the public Ingress target.
+
+## Local Docker Desktop verification (2026-09-01)
+
+The manifests have been deployed successfully to Docker Desktop Kubernetes:
+
+- `migrate` Job completed against the local Docker Compose PostgreSQL instance.
+- API: 2/2 ready replicas.
+- Web: 2/2 ready replicas.
+- `http://127.0.0.1:8080/doctors` returned HTTP 200 and rendered doctor data
+  through `kubectl port-forward service/web 8080:80`.
+- `http://127.0.0.1:8081/api/services` returned HTTP 200 with 9 services
+  through `kubectl port-forward service/api 8081:3001`.
+
+The port-forward processes are for local demonstration only. Stop them with
+`Stop-Process -Id <pid>` when you are done. A public deployment additionally
+needs an Ingress controller, DNS, TLS, and a managed PostgreSQL connection.
