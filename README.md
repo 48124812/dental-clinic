@@ -186,9 +186,9 @@ docker compose down -v                         # 停 + 刪資料 volume
 - [x] **Phase 2**: 專案啟動 — Repo / Branch protection / Product Backlog / Sprint 1 plan
 - [x] **Phase 3**: Sprint 1 MVP — 首頁、醫師、療程、RWD (4 stories closed)
 - [x] **Phase 4**: 12-Factor 強化 — Zod config / Vitest / /ready probe / Shared types / ADRs
-- [ ] **Phase 5**: Containerize — Dockerfile + Compose full stack ← 下次接續
-- [ ] **Phase 6**: CI/CD with GitHub Actions
-- [ ] **Phase 7**: Deploy (PaaS → VM → K8s)
+- [x] **Phase 5**: Containerize — Dockerfile + Compose full stack；本機 runtime 驗證完成
+- [~] **Phase 6**: CI/CD with GitHub Actions — CI 完成（lint / typecheck / test / build / image build）；CD 待 Render 串接
+- [ ] **Phase 7**: Deploy (Render PaaS → VM → K8s)
 - [ ] **Phase 8**: Observability (Prometheus / Grafana / Loki / SLO)
 
 ---
