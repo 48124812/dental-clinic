@@ -22,6 +22,7 @@
 | CI/CD    | GitHub Actions (Phase 6) |
 | Observability | Prometheus + Grafana + Loki (Phase 8) |
 | Deployment | Render (live) + Kubernetes manifests (cluster-ready) |
+| Kubernetes | Docker Desktop Kubernetes deployed and locally verified |
 
 ---
 
