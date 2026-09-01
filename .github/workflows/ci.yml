@@ -29,6 +29,8 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Generate Prisma Client
+        run: pnpm --filter @dental-clinic/api db:generate
       - name: Lint
         run: pnpm lint
       - name: Type-check
