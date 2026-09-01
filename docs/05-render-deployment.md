@@ -24,6 +24,12 @@ https://<dental-clinic-api>.onrender.com/ready
 The API runs `prisma migrate deploy` from its container startup script before
 starting Fastify because Render's pre-deploy command is a paid feature.
 
+For this learning project's public demo, `RUN_SAMPLE_SEED=true` also runs the
+idempotent Prisma sample-data script after migrations. It populates doctors,
+services, and business hours on a new Render database. Keep this setting off
+for a real clinic, where data should be managed through an authenticated admin
+workflow.
+
 ## Continuous deployment
 
 Both services automatically rebuild and deploy after a commit reaches `main`.
