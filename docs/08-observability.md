@@ -11,6 +11,8 @@ alert evaluation, and Grafana for dashboards.
 | Availability | `up{job="dental-clinic-api"}` | 99.5% successful Prometheus scrapes over 30 days |
 | Error rate | `rate(dental_clinic_http_requests_total{status_code=~"5.."}[5m])` | Below 5% for five minutes |
 | Latency | `histogram_quantile(0.95, sum(rate(dental_clinic_http_request_duration_seconds_bucket[5m])) by (le))` | p95 below 500 ms under normal local load |
+| Traffic | `sum(rate(dental_clinic_http_requests_total[5m]))` | Observe request rate and sudden drops |
+| Saturation | `rate(dental_clinic_process_cpu_seconds_total[5m])` and `dental_clinic_process_resident_memory_bytes` | Investigate sustained CPU or memory growth |
 
 ## Deploy locally
 
@@ -26,6 +28,28 @@ kubectl apply -k k8s/observability
 kubectl -n dental-clinic rollout status deployment/prometheus
 kubectl -n dental-clinic rollout status deployment/grafana
 ```
+
+## Email alert routing
+
+Prometheus forwards firing alerts to Alertmanager. Before applying the stack,
+create a real, untracked Secret from
+`k8s/observability/alertmanager-config.example.yaml`; replace the SMTP host,
+sender, password, and admin recipient first. Do not apply the example file as
+is or commit the resulting Secret.
+
+```powershell
+Copy-Item k8s/observability/alertmanager-config.example.yaml $env:TEMP\alertmanager-secret.yaml
+# Edit the copied file with your SMTP credentials and recipient, then:
+kubectl apply -f $env:TEMP\alertmanager-secret.yaml
+kubectl -n dental-clinic rollout status deployment/alertmanager
+```
+
+`DentalClinicHighServerErrorRate` fires when 5xx responses exceed **1% for
+five minutes**. Alertmanager emails both firing and resolved notifications.
+
+For Resend SMTP, use `smtp.resend.com:587`, username `resend`, and a Resend
+API key as the password. Port 587 keeps Alertmanager's default STARTTLS
+protection enabled.
 
 After the API image containing `/metrics` is deployed, open the tools locally:
 

@@ -35,6 +35,24 @@ data:
           "title": "API p95 request latency",
           "type": "timeseries",
           "targets": [{"expr": "histogram_quantile(0.95, sum(rate(dental_clinic_http_request_duration_seconds_bucket[5m])) by (le))", "refId": "A"}]
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "id": 4,
+          "title": "API process CPU saturation",
+          "type": "timeseries",
+          "targets": [{"expr": "rate(dental_clinic_process_cpu_seconds_total[5m])", "refId": "A"}]
+        },
+        {
+          "datasource": "Prometheus",
+          "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "id": 5,
+          "title": "API process memory saturation",
+          "type": "timeseries",
+          "targets": [{"expr": "dental_clinic_process_resident_memory_bytes", "refId": "A"}]
         }
       ],
       "schemaVersion": 41,
