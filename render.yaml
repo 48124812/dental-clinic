@@ -16,7 +16,7 @@ services:
     region: singapore
     dockerContext: .
     dockerfilePath: apps/api/Dockerfile
-    dockerCommand: /bin/sh -c 'node /app/node_modules/prisma/build/index.js migrate deploy --schema=./prisma/schema.prisma && node dist/server.js'
+    dockerCommand: /bin/sh -c "node /app/node_modules/prisma/build/index.js migrate deploy --schema=./prisma/schema.prisma && node dist/server.js"
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
