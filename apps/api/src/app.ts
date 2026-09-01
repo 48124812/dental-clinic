@@ -8,6 +8,7 @@ import { servicesRoutes } from './routes/services.js';
 import { appointmentsRoutes } from './routes/appointments.js';
 import { staffAppointmentsRoutes } from './routes/staff-appointments.js';
 import { adminCatalogRoutes } from './routes/admin-catalog.js';
+import { caseStudiesRoutes } from './routes/case-studies.js';
 import { registerMetrics } from './observability/metrics.js';
 
 /**
@@ -45,6 +46,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(appointmentsRoutes);
   await app.register(staffAppointmentsRoutes);
   await app.register(adminCatalogRoutes);
+  await app.register(caseStudiesRoutes);
 
   return app;
 }

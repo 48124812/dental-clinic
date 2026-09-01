@@ -42,6 +42,12 @@ export default async function HomePage() {
             >
               立即預約
             </Link>
+            <Link
+              href="/cases"
+              className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 ring-1 ring-slate-300 hover:bg-slate-50 transition"
+            >
+              療程案例
+            </Link>
             <a
               href="tel:+886223456789"
               className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-base font-semibold text-slate-900 ring-1 ring-slate-300 hover:bg-slate-50 transition"

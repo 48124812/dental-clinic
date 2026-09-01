@@ -66,6 +66,13 @@ export async function listDoctors(): Promise<Doctor[]> {
   return res.json() as Promise<Doctor[]>;
 }
 
+export type CaseStudy = { id: string; title: string; treatment: string; summary: string; beforeImage: string; afterImage: string };
+export async function listCaseStudies(): Promise<CaseStudy[]> {
+  const res = await fetch(`${API_URL}/api/case-studies`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to fetch case studies: ${res.status}`);
+  return res.json() as Promise<CaseStudy[]>;
+}
+
 /** 找不到回 null（不 throw），讓 caller 用 notFound() 處理 */
 export async function getDoctorById(id: string): Promise<Doctor | null> {
   const res = await fetch(`${API_URL}/api/doctors/${encodeURIComponent(id)}`, {
