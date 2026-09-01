@@ -47,6 +47,10 @@ const ConfigSchema = z.object({
   RESEND_FROM: z.string().email().default('onboarding@resend.dev'),
   EMAIL_TEST_RECIPIENT: z.string().email().optional(),
 
+  // ----- Staff dashboard -----
+  STAFF_DASHBOARD_TOKEN: z.string().min(24).optional(),
+  STAFF_EMAIL: z.string().email().default('staff@local.invalid'),
+
   // ----- Node env -----
   // production: prod 行為（壓縮 log、嚴格 mode）
   // development / test: dev/test 行為
