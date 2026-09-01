@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provider
+  namespace: dental-clinic
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: dental-clinic
+        folder: Dental Clinic
+        type: file
+        options:
+          path: /var/lib/grafana/dashboards

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: dental-clinic
+data:
+  api-alerts.yml: |
+    groups:
+      - name: dental-clinic-api
+        rules:
+          - alert: DentalClinicApiDown
+            expr: up{job="dental-clinic-api"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: Dental Clinic API metrics target is unavailable
+              description: Prometheus has been unable to scrape the API for 2 minutes.
+          - alert: DentalClinicHighServerErrorRate
+            expr: |
+              (
+                sum(rate(dental_clinic_http_requests_total{status_code=~"5.."}[5m]))
+                /
+                clamp_min(sum(rate(dental_clinic_http_requests_total[5m])), 1)
+              ) > 0.05
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Dental Clinic API 5xx error rate exceeds 5%
+              description: Investigate API logs, dependency health, and recent deployments.
