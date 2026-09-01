@@ -7,7 +7,7 @@ type: Opaque
 stringData:
   alertmanager.yml: |
     global:
-      smtp_smarthost: "smtp.resend.com:465"
+      smtp_smarthost: "smtp.resend.com:587"
       smtp_from: "onboarding@resend.dev"
       smtp_auth_username: "resend"
       smtp_auth_password: "REPLACE_WITH_RESEND_API_KEY"

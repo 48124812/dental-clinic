@@ -47,6 +47,10 @@ kubectl -n dental-clinic rollout status deployment/alertmanager
 `DentalClinicHighServerErrorRate` fires when 5xx responses exceed **1% for
 five minutes**. Alertmanager emails both firing and resolved notifications.
 
+For Resend SMTP, use `smtp.resend.com:587`, username `resend`, and a Resend
+API key as the password. Port 587 keeps Alertmanager's default STARTTLS
+protection enabled.
+
 After the API image containing `/metrics` is deployed, open the tools locally:
 
 ```powershell
