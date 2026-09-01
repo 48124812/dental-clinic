@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: dental-clinic
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: ghcr.io/48124812/dental-clinic-api:latest
+          command:
+            - node
+            - /app/node_modules/prisma/build/index.js
+            - migrate
+            - deploy
+            - --schema=./prisma/schema.prisma
+          envFrom:
+            - secretRef:
+                name: database-secret
