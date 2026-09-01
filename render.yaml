@@ -16,6 +16,9 @@ services:
     region: singapore
     dockerContext: .
     dockerfilePath: apps/api/Dockerfile
+    # Keep this a single executable command. Render's Docker-command parser
+    # does not reliably handle shell operators such as `&&` here.
+    dockerCommand: sh ./start-container.sh
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
