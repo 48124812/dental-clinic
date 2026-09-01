@@ -227,11 +227,20 @@ async function seedBusinessHours(): Promise<void> {
   console.log(`✅ BusinessHours: ${hours.length} upserted`);
 }
 
+async function seedCaseStudies(): Promise<void> {
+  const cases = [
+    { id: 'case_whitening_demo', title: '居家美白療程示意', treatment: '美白療程', summary: '以患者口腔狀況評估後安排的居家美白療程示意。', beforeImage: 'https://placehold.co/800x600/e2e8f0/334155?text=Before', afterImage: 'https://placehold.co/800x600/dcfce7/166534?text=After', displayOrder: 1, active: true },
+    { id: 'case_ortho_demo', title: '隱形矯正療程示意', treatment: '隱形矯正', summary: '依咬合與牙齒排列設計的矯正療程示意。', beforeImage: 'https://placehold.co/800x600/e2e8f0/334155?text=Before', afterImage: 'https://placehold.co/800x600/dbeafe/1d4ed8?text=After', displayOrder: 2, active: true },
+  ];
+  for (const item of cases) await prisma.caseStudy.upsert({ where: { id: item.id }, update: item, create: item });
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seeding...');
   await seedDoctors();
   await seedServices();
   await seedBusinessHours();
+  await seedCaseStudies();
   console.log('🎉 Seed complete.');
 }
 
