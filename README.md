@@ -187,8 +187,8 @@ docker compose down -v                         # 停 + 刪資料 volume
 - [x] **Phase 3**: Sprint 1 MVP — 首頁、醫師、療程、RWD (4 stories closed)
 - [x] **Phase 4**: 12-Factor 強化 — Zod config / Vitest / /ready probe / Shared types / ADRs
 - [x] **Phase 5**: Containerize — Dockerfile + Compose full stack；本機 runtime 驗證完成
-- [~] **Phase 6**: CI/CD with GitHub Actions — CI 完成（lint / typecheck / test / build / image build）；CD 待 Render 串接
-- [ ] **Phase 7**: Deploy (Render PaaS → VM → K8s)
+- [x] **Phase 6**: CI/CD with GitHub Actions — CI 完成；main 合併後會自動觸發 Render 部署
+- [~] **Phase 7**: Deploy — Render API、PostgreSQL 與 Web 已部署；目前使用可重複執行的展示資料 seed，下一步可延伸至 VM / K8s
 - [ ] **Phase 8**: Observability (Prometheus / Grafana / Loki / SLO)
 
 ---
