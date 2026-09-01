@@ -1,0 +1,28 @@
+# Docker builds use the repository root as their context.
+# Keep source and manifests needed by the workspace build, while excluding
+# local dependencies, generated artefacts, credentials, and Git metadata.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+.git
+.github
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+**/.env.*.local
+
+.vscode
+.idea
+*.log
+*.swp
+.DS_Store
+Thumbs.db
+
+docs
+scripts

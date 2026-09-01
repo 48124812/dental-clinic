@@ -85,6 +85,7 @@ USER node
 WORKDIR /app/apps/web
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV INTERNAL_API_URL=http://api:3001
 # Next.js 預設聽 3000，HOSTNAME 設 0.0.0.0 才能在 container 外連到
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000

@@ -140,6 +140,21 @@ pnpm --filter @dental-clinic/web build         # next build -> .next/
 pnpm --filter @dental-clinic/web start         # next start (port 3000)
 ```
 
+### Current project status (2026-09-01)
+
+- **Phase 5 — Containerization: complete.** The repository now has production
+  Docker images for the web and API apps, plus Compose services for PostgreSQL
+  and Prisma migrations.
+- **Phase 6 — CI: complete.** GitHub Actions runs lint, type checks, unit
+  tests, production builds, and Docker image builds for pull requests and
+  pushes to `main`.
+- **Verified locally:** 19 unit tests, type checks, and production builds pass.
+  Start Docker Desktop and run `docker compose up --build -d` for the final
+  full-stack runtime check. Details are in
+  [`docs/04-phase-5-containerization.md`](docs/04-phase-5-containerization.md).
+- **Next:** Phase 7 deployment (cloud platform and managed database) and Phase
+  8 observability (metrics, dashboards, alerts, and SLOs).
+
 ### Docker (Postgres)
 ```powershell
 docker compose up -d                           # 啟動 Postgres

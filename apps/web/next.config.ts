@@ -1,5 +1,5 @@
-import path from "node:path";
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   // standalone output：Next.js 自動分析 runtime 需要的最小 module 集，
