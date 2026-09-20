@@ -1,4 +1,75 @@
-# Cloud-Native Dental Appointment Platform
+# 牙醫診所官方網站 (Dental Clinic Website)
+
+
+
+---
+
+## 🎯 專案目標
+
+打造一個**功能健全、可上雲、可觀察、可持續交付**的牙醫診所官方網站。
+
+## 🧰 技術棧
+
+| 層 | 技術 |
+|---|---|
+| Frontend | Next.js 16 (App Router, RSC) + TypeScript + Tailwind CSS 4 |
+| Backend  | Fastify 5 + TypeScript + Zod |
+| ORM      | Prisma 6 |
+| Database | PostgreSQL 16 (Alpine) |
+| Container| Docker + Docker Compose → Kubernetes (Phase 7) |
+| CI/CD    | GitHub Actions (Phase 6) |
+| Observability | Prometheus + Grafana + alert rules + SLO (local K8s verified); Loki pending |
+| Deployment | Render (live) + Kubernetes manifests (cluster-ready) |
+| Kubernetes | Docker Desktop Kubernetes deployed and locally verified |
+| Phase progress | Phase 7 complete; Phase 8 core monitoring complete, Loki and external alert delivery pending |
+
+## Current delivery status
+
+- **Product increment (in progress):** Three-step appointment booking, slot
+  conflict protection, reference-code lookup/cancellation, and a durable email
+  outbox are implemented and validated locally. The email sender is safe for
+  Resend sandbox use and remains queued until its environment variables are set.
+- **Sandbox email setup:** configure `RESEND_API_KEY`,
+  `RESEND_FROM=onboarding@resend.dev`, and `EMAIL_TEST_RECIPIENT` with the
+  email verified in Resend. Do not commit these values; add them to Render's
+  environment settings instead.
+- **Still requiring configuration or follow-up:** staff/admin authentication,
+  actual admin CRUD UI, case-study assets, Loki, and Alertmanager email routing
+  are not marked complete until their credentials/assets or provider settings
+  exist.
+
+- **Live demo:** [Web](https://dental-clinic-web.onrender.com) · [API health](https://dental-clinic-api-ylv9.onrender.com/health)
+- **Delivery pipeline:** Pull request CI → merge to `main` → Render deployment → scheduled/manual API smoke test.
+- **Local Kubernetes:** API and Web each run two ready replicas; migration runs as a Job; Prometheus and Grafana verify API metrics locally.
+- **Release:** [v0.1.0](https://github.com/48124812/dental-clinic/releases/tag/v0.1.0)
+
+## Next product backlog
+
+1. **P0 — #3: Three-step online appointment.** Establish the `Appointment`
+   model, availability validation, booking API, and patient-facing booking UI.
+2. **P0 — #6: Today's appointment dashboard.** Builds on #3 so clinic staff
+   can view and update appointment attendance.
+3. **P0 — #7: Admin doctor and service management.** Replace demo seed data
+   with authenticated management workflows.
+4. **P0 — #8: Booking confirmation email.** Add a transactional email provider
+   after the appointment creation event exists.
+5. **P1 — #11, #12, #13:** Patient self-service, SEO, and the remaining
+   observability work (Loki plus external alert delivery).
+
+---
+
+## 🚀 第一次跑（從 clone 開始 5 分鐘上手）
+
+### 前置 (一次性安裝)
+1. **Node.js 22+ LTS** — `winget install OpenJS.NodeJS.LTS`
+2. **pnpm 10+** — `winget install pnpm.pnpm`
+3. **Git** — `winget install Git.Git`
+4. **Docker Desktop** — `winget install Docker.DockerDesktop`（並啟動）
+5. **GitHub CLI**（選用）— `winget install GitHub.cli`
+
+> Windows PowerShell 補設定：`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（以管理員）
+
+### 跑起來
 
 A full-stack appointment and clinic operations platform built around a reliable booking workflow, automated testing and delivery, containerized deployment, Kubernetes, and observability.
 
