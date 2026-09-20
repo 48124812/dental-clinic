@@ -67,13 +67,11 @@ function parseConfig(): Config {
   const result = ConfigSchema.safeParse(process.env);
 
   if (!result.success) {
-    /* eslint-disable no-console */
     console.error('❌ Invalid environment configuration:');
     for (const issue of result.error.issues) {
       console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
     }
     console.error('\nCheck your .env file or env vars and try again.');
-    /* eslint-enable no-console */
     process.exit(1);
   }
 

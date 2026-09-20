@@ -19,7 +19,12 @@ export async function staffAppointmentsRoutes(app: FastifyInstance): Promise<voi
     try { authorize(request); } catch { return reply.code(401).send({ error: 'Staff authentication required.' }); }
     const parsed = z.enum(['CHECKED_IN', 'NO_SHOW']).safeParse(request.body?.status);
     if (!parsed.success) return reply.code(400).send({ error: 'status must be CHECKED_IN or NO_SHOW.' });
-    const appointment = await service.updateAttendance(request.params.id, parsed.data);
-    return appointment ?? reply.code(404).send({ error: 'Appointment not found.' });
+    try {
+      const appointment = await service.updateAttendance(request.params.id, parsed.data);
+      return appointment ?? reply.code(404).send({ error: 'Appointment not found.' });
+    } catch (error) {
+      if (error instanceof service.AppointmentTransitionError) return reply.code(409).send({ error: error.message });
+      throw error;
+    }
   });
 }

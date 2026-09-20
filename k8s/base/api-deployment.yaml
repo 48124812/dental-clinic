@@ -24,7 +24,7 @@ spec:
                 name: database-secret
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: 3001
             initialDelaySeconds: 5
             periodSeconds: 10

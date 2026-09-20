@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import type { Writable } from 'node:stream';
 import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { businessHoursRoutes } from './routes/business-hours.js';
@@ -19,13 +20,30 @@ import { registerMetrics } from './observability/metrics.js';
  * - 對應 12-Factor Factor 6 (P.32): processes stateless, share-nothing
  * - server.ts 才是綁 port 的地方；app.ts 是「邏輯本體」，可以單獨被 .inject() 測試
  */
-export async function buildApp(): Promise<FastifyInstance> {
+export async function buildApp(options: { logStream?: Writable } = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: config.LOG_LEVEL,
+      stream: options.logStream,
+      serializers: {
+        req: (request) => ({ method: request.method }),
+        err: () => ({ type: 'ApplicationError', message: 'Details omitted', stack: '' }),
+      },
     },
+    disableRequestLogging: true,
     // 對應 12-Factor Factor 11 (P.38): logs as event streams
     // Fastify 預設用 pino，已是 JSON 結構化 log + 寫到 stdout，符合 cloud-native 標準
+  });
+
+  // Log only bounded metadata, never raw URLs, headers, bodies, or error messages.
+  app.addHook('onResponse', async (request, reply) => {
+    request.log.info({ method: request.method, route: request.routeOptions?.url ?? 'unmatched', statusCode: reply.statusCode }, 'Request completed');
+  });
+  app.setErrorHandler((error, request, reply) => {
+    const candidate = error instanceof Error && 'statusCode' in error ? error.statusCode : undefined;
+    const status = typeof candidate === 'number' && candidate >= 400 && candidate < 500 ? candidate : 500;
+    request.log.error({ statusCode: status }, 'Request failed');
+    return reply.code(status).send({ error: status === 500 ? 'Internal server error' : 'Invalid request' });
   });
 
   // CORS — 允許前端 (localhost:3000) 跨網域呼叫 API (localhost:3001)

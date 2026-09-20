@@ -60,17 +60,15 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 async function checkDatabase(): Promise<{
   ok: boolean;
   latencyMs: number;
-  error?: string;
 }> {
   const start = Date.now();
   try {
     await prisma.$queryRaw`SELECT 1`;
     return { ok: true, latencyMs: Date.now() - start };
-  } catch (err) {
+  } catch {
     return {
       ok: false,
       latencyMs: Date.now() - start,
-      error: err instanceof Error ? err.message : String(err),
     };
   }
 }

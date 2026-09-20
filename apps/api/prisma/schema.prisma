@@ -89,7 +89,8 @@ model Appointment {
   updatedAt         DateTime          @updatedAt
   emailDeliveries   EmailDelivery[]
 
-  @@unique([doctorId, startsAt])
+  // Active-slot uniqueness is enforced by the custom PostgreSQL partial index.
+  // Keep cancelled history; do not replace this with an unconditional @@unique.
   @@index([startsAt, status])
 }
 

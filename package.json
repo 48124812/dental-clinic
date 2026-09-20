@@ -15,6 +15,8 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
+    "test:integration": "node scripts/test-postgres.mjs",
+    "test:load-config": "node --experimental-vm-modules --test load-tests/read-only.test.mjs",
     "typecheck": "pnpm -r run typecheck"
   },
   "devDependencies": {

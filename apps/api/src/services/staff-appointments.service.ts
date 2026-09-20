@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { prisma } from '../lib/prisma.js';
 
 export class StaffAuthenticationError extends Error {}
+export class AppointmentTransitionError extends Error {}
 
 export function assertStaffToken(value: string | undefined): void {
   const expected = config.STAFF_DASHBOARD_TOKEN;
@@ -28,9 +29,16 @@ export async function listStaffAppointments(day: string) {
 export async function updateAttendance(id: string, status: Extract<AppointmentStatus, 'CHECKED_IN' | 'NO_SHOW'>) {
   const before = await prisma.appointment.findUnique({ where: { id }, select: { status: true } });
   if (!before) return null;
+  if (before.status === 'CANCELLED') {
+    throw new AppointmentTransitionError('Cancelled appointments cannot be restored. Create a new booking instead.');
+  }
   const actor = await staffActor();
   return prisma.$transaction(async (tx) => {
-    const appointment = await tx.appointment.update({ where: { id }, data: { status }, include: { doctor: { select: { name: true } } } });
+    // Compare-and-set prevents a concurrent cancellation from being overwritten.
+    // Attendance corrections between non-cancelled states remain supported.
+    const changed = await tx.appointment.updateMany({ where: { id, status: before.status }, data: { status } });
+    if (changed.count !== 1) throw new AppointmentTransitionError('Appointment status changed. Refresh before trying again.');
+    const appointment = await tx.appointment.findUniqueOrThrow({ where: { id }, include: { doctor: { select: { name: true } } } });
     await tx.auditLog.create({ data: { actorId: actor.id, action: 'APPOINTMENT_ATTENDANCE_UPDATED', entityType: 'Appointment', entityId: id, before: { status: before.status }, after: { status } } });
     return appointment;
   });

@@ -18,6 +18,7 @@
 # 任務：裝 deps、跑 prisma generate、跑 tsc 編譯
 # -----------------------------------------------------------------------------
 FROM node:22-alpine AS builder
+RUN apk add --no-cache openssl
 
 # corepack: Node 內建的 package manager 切換器，啟用後 pnpm 自動用 root
 # package.json 鎖的版本
@@ -36,21 +37,16 @@ COPY packages/shared/package.json ./packages/shared/
 #                       pnpm 10 + Docker 環境下 workspace symlink 不穩
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 
-# ---- 2. 全域裝 CLI 工具 ----
-# 避免 pnpm exec / npx 嘗試從不存在的 workspace symlink 找 bin。
-# 全域 prisma / tsc 直接在 PATH 上、零 lookup 問題。
-# 版本對齊 apps/api/package.json (prisma ^6, typescript ^5.7)。
-RUN npm install -g prisma@6 typescript@5.7
-
-# ---- 3. Copy source 並 build ----
+# ---- 2. Copy source and use the lockfile-installed CLI tools ----
 COPY tsconfig.base.json ./
 COPY apps/api ./apps/api
 
-# Prisma generate 寫到 /repo/node_modules/.prisma/client（因為 shamefully-hoist）
-RUN cd apps/api && prisma generate
+# Generate with the same CLI copied into runtime, including its migration engine.
+# A global CLI can cache engines outside /repo and leave runtime downloading them.
+RUN cd apps/api && node /repo/node_modules/prisma/build/index.js generate
 
 # tsc 編譯 src/*.ts → apps/api/dist/*.js
-RUN tsc -p apps/api/tsconfig.json
+RUN node /repo/node_modules/typescript/bin/tsc -p apps/api/tsconfig.json
 
 
 # -----------------------------------------------------------------------------

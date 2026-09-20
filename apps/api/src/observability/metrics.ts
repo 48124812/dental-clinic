@@ -47,7 +47,7 @@ export function registerMetrics(app: FastifyInstance): void {
     const start = startedAt.get(request);
     if (start === undefined) return;
 
-    const route = request.routeOptions?.url ?? request.url.split('?')[0];
+    const route = request.routeOptions?.url ?? 'unmatched';
     const labels = {
       method: request.method,
       route,

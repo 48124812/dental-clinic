@@ -17,5 +17,7 @@ data:
     scrape_configs:
       - job_name: dental-clinic-api
         metrics_path: /metrics
-        static_configs:
-          - targets: ['api.dental-clinic.svc.cluster.local:3001']
+        dns_sd_configs:
+          - names: ['api-metrics.dental-clinic.svc.cluster.local']
+            type: A
+            port: 3001
