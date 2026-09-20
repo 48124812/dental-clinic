@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
  * Next 會把這些放進 <head>：title、description、og:image 等。
  */
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dental-clinic-web.onrender.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://dental-clinic-web-ejw6.onrender.com'),
   alternates: { canonical: '/' },
   robots: { index: true, follow: true },
   title: {
@@ -50,6 +50,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         <Header />
+        <aside className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950">
+          工程作品 Demo，非真實診所服務。僅限假資料，請勿輸入真實姓名、電話、Email 或健保資訊。
+        </aside>
         {children}
         <Footer />
       </body>

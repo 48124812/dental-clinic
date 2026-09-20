@@ -22,6 +22,8 @@ const LINKS = [
   { href: '/', label: '首頁' },
   { href: '/doctors', label: '醫師團隊' },
   { href: '/services', label: '服務項目' },
+  { href: '/appointments/new', label: '線上預約' },
+  { href: '/appointments/lookup', label: '查詢／取消' },
 ];
 
 export function MobileMenu() {

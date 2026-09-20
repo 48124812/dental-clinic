@@ -4,7 +4,35 @@ Cloud-Native Dental Appointment Platform 提供預約流程、診所操作、容
 
 This is an engineering portfolio project and is not intended to process real patient data in production.
 
-以下操作步驟不代表每個流程已完成 E2E 驗證。實際執行範圍見 [verification records](09-project-verification.md)。公開 Render 網址不作為壓測目標。
+公開網站的實際驗證範圍見 [Online readiness audit](07-deployment-verification.md#online-readiness-audit-2026-09-21)；本機與基礎設施證據見 [verification records](09-project-verification.md)。公開 Render 網址不作為壓測目標。
+
+## Online Demo Script (3 minutes)
+
+這是公開功能操作指南，不需要安裝工具、設定環境變數或登入 Render。先開啟 [Web](https://dental-clinic-web-ejw6.onrender.com)、[API health](https://dental-clinic-api-ylv9.onrender.com/health) 與 [API ready](https://dental-clinic-api-ylv9.onrender.com/ready)。Render Free 的首次啟動可能約需一分鐘，暖機時間不計入三分鐘操作時間；Web 與 API 可各自休眠。不要使用舊的 `dental-clinic-web.onrender.com`：它目前顯示其他網站。
+
+| 時間 | 畫面與操作 | 應看到的結果 |
+| --- | --- | --- |
+| 0:00–0:30 | 首頁 → [醫師](https://dental-clinic-web-ejw6.onrender.com/doctors) → [療程](https://dental-clinic-web-ejw6.onrender.com/services) | 醫師與療程卡片，資料來自 API |
+| 0:30–1:15 | [線上預約](https://dental-clinic-web-ejw6.onrender.com/appointments/new)：記住醫師、選至少兩天後的可用時段，填入下方假資料，確認後只送出一次 | 「預約已成立」與 reference code；暫存於私人筆記，不放入 Git |
+| 1:15–1:50 | [查詢／取消](https://dental-clinic-web-ejw6.onrender.com/appointments/lookup)：輸入剛取得的編號及末四碼 `5678`；查詢後按取消並確認 | 顯示原預約，取消後顯示「已取消」；取消只允許距預約至少 24 小時 |
+| 1:50–2:40 | 回到預約頁，選相同醫師、日期、時段，再送出相同假資料 | 新 reference code；用舊編號查詢仍顯示已取消，用新編號可查到新預約 |
+| 2:40–3:00 | 取消最後一筆測試預約；切到 health / ready | Demo 時段已釋放；health 表示程序存活，ready 表示 DB 可連線 |
+
+示例資料僅供此 Demo：姓名 `Demo Patient`、電話 `0000005678`（不可撥打的合成值）、Email `demo@example.invalid`（不可投遞）、測試識別碼 `DEMO_ONLY`。不得使用真實個資。若選定時段剛被其他訪客預約，返回第一步改選其他時段，不要連續重送。不要將畫面、編號或原始回應加入公開 repository。
+
+取消紀錄會保留，partial unique index 僅限制有效預約；這項線上功能驗證不等於並發或容量測試。Email 不屬於本流程的成功條件。Staff/Admin 需要私人環境 Token，僅由維護者另行示範；不要公開 Token，也不要要求一般訪客設定 Token。
+
+本輪新增的導覽、Demo 提醒與中文錯誤提示仍是本機修改，尚未發布。既有公開版本可直接使用上面的查詢連結完成操作。
+
+## Online Demo Fallback
+
+1. 若顯示 Render 啟動畫面或暫時無回應，等待約一分鐘再試一次；不要反覆點「確認預約」。服務還未啟動時，應用程式自己的 loading 畫面也無法顯示。
+2. 若送出預約或取消後斷線，結果可能已寫入 DB。已有編號時先查詢；沒有編號時先確認原時段，不要改用其他資料重複提交。此專案尚無 lost-reference recovery 或 idempotency key。
+3. 若 health=200 但 ready=503，代表程序存活但 DB 不可用，停止功能演練。只看 health=200 不能宣稱可預約。
+4. 切到 [README 架構圖](../README.md#architecture-diagram)、[公開驗證紀錄](07-deployment-verification.md#online-readiness-audit-2026-09-21)、[GitHub Actions](https://github.com/48124812/dental-clinic/actions) 與 [預約一致性設計](12-booking-consistency.md)。清楚說明這是歷史執行證據與程式設計，不是當下網站成功。
+5. 可預先開好已成功的 CI run：[2026-09-20 main 驗證](https://github.com/48124812/dental-clinic/actions/runs/35515542354)。若 GitHub 也無法連線，使用事先準備且標記日期／commit 的文件或去識別化畫面；沒有畫面就展示設定檔，不虛構截圖。
+
+不在公開站台執行 k6、不臨時遷移或 reset DB、不為演練公開 Staff/Admin Token。此 Render Demo 不能作為 Kubernetes 已部署或 HPA 實際擴縮的證據；**HPA configured, pending runtime verification**。
 
 ## Quick Functional Demo
 
