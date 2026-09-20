@@ -1,0 +1,50 @@
+# Local/demo cluster only. Create the script ConfigMap first; see README.md.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-read-only
+  namespace: dental-clinic
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 720
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 12345
+      containers:
+        - name: k6
+          image: grafana/k6:1.0.0
+          command: [/bin/sh, -c]
+          args:
+            - |
+              k6 run --summary-export=/results/summary.json /scripts/read-only.js
+              result=$?
+              if [ -f /results/summary.json ]; then
+                echo 'K6_SUMMARY_JSON_BEGIN'
+                cat /results/summary.json
+                echo 'K6_SUMMARY_JSON_END'
+              fi
+              exit "$result"
+          env:
+            - name: BASE_URL
+              value: http://api.dental-clinic.svc.cluster.local:3001
+            - name: PROFILE
+              value: ramp
+            - name: PEAK_VUS
+              value: "20"
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: scripts
+          configMap:
+            name: k6-read-only-script
+        - name: results
+          emptyDir: {}

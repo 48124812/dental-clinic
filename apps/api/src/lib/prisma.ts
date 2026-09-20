@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { config } from '../config.js';
 
 /**
  * Prisma Client singleton.
@@ -13,8 +12,7 @@ import { config } from '../config.js';
  * - 12-Factor Factor 4 (P.28): backing services 用連線池統一管理
  */
 export const prisma = new PrismaClient({
-  log:
-    config.LOG_LEVEL === 'debug' || config.LOG_LEVEL === 'trace'
-      ? ['query', 'info', 'warn', 'error']
-      : ['warn', 'error'],
+  // Prisma query/error text can contain patient values. Application logs emit
+  // bounded request metadata instead; do not enable raw query logging here.
+  log: [],
 });

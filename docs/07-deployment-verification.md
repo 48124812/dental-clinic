@@ -2,6 +2,9 @@
 
 ## Live services
 
+These are recorded demo addresses, not a current uptime guarantee. This pass
+did not probe Render; see [local verification](09-project-verification.md).
+
 - Web: <https://dental-clinic-web.onrender.com>
 - API health: <https://dental-clinic-api-ylv9.onrender.com/health>
 - API doctors: <https://dental-clinic-api-ylv9.onrender.com/api/doctors>
@@ -30,6 +33,9 @@ runs weekly. Its deployment target is stored in the repository variable
 ## Current limitations
 
 - Render Free services can sleep while idle, so the first request may be slow.
-- The Render database contains idempotent demo seed data; it is not a clinic
-  administration workflow.
-- Kubernetes resources are prepared but not deployed until a cluster is chosen.
+- The Blueprint enables idempotent demo seed data. Admin catalog and Staff UI
+  exist, but require separately configured environment tokens; full account
+  authentication is not implemented.
+- Kubernetes has a historical local deployment record. Current changes have
+  passed static Kustomize validation; follow the updated
+  [migration-first SHA rollout](06-kubernetes-deployment.md) for runtime checks.

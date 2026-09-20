@@ -26,4 +26,15 @@ describe('registerMetrics', () => {
       'route="/items/:id",status_code="200"',
     );
   });
+
+  it('does not expose user-controlled unknown paths or query values', async () => {
+    const app = Fastify();
+    apps.push(app);
+    registerMetrics(app);
+    await app.inject('/unknown/SYNTHETIC_PRIVATE_MARKER?email=synthetic@example.invalid');
+    const response = await app.inject('/metrics');
+    expect(response.body).toContain('route="unmatched"');
+    expect(response.body).not.toContain('SYNTHETIC_PRIVATE_MARKER');
+    expect(response.body).not.toContain('synthetic@example.invalid');
+  });
 });

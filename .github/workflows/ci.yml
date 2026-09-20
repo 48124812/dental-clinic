@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -38,6 +37,8 @@ jobs:
         run: pnpm typecheck
       - name: Unit tests
         run: pnpm test
+      - name: Load script safety checks (no network)
+        run: pnpm test:load-config
       - name: Production build
         run: pnpm build
 
@@ -53,7 +54,10 @@ jobs:
 
   publish-images:
     name: Publish container images
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     needs: [verify, container-build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -80,7 +84,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           build-args: |
-            NEXT_PUBLIC_API_URL=/api
+            NEXT_PUBLIC_API_URL=
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/dental-clinic-web:latest

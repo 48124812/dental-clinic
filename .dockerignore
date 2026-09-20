@@ -9,6 +9,7 @@
 **/*.tsbuildinfo
 
 .git
+.private
 .github
 .env
 .env.*

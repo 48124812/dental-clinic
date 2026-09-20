@@ -1,0 +1,15 @@
+# Discover each API Pod separately instead of scraping a load-balanced counter.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-metrics
+  namespace: dental-clinic
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: metrics
+      port: 3001
+      targetPort: 3001

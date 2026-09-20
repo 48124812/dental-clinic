@@ -9,7 +9,7 @@ data:
       - name: dental-clinic-api
         rules:
           - alert: DentalClinicApiDown
-            expr: up{job="dental-clinic-api"} == 0
+            expr: up{job="dental-clinic-api"} == 0 or absent(up{job="dental-clinic-api"})
             for: 2m
             labels:
               severity: critical
@@ -19,10 +19,10 @@ data:
           - alert: DentalClinicHighServerErrorRate
             expr: |
               (
-                sum(rate(dental_clinic_http_requests_total{status_code=~"5.."}[5m]))
+                (sum(rate(dental_clinic_http_requests_total{job="dental-clinic-api",route!~"/health|/ready|/metrics",status_code=~"5.."}[5m])) or vector(0))
                 /
-                clamp_min(sum(rate(dental_clinic_http_requests_total[5m])), 1)
-              ) > 0.01
+                sum(rate(dental_clinic_http_requests_total{job="dental-clinic-api",route!~"/health|/ready|/metrics"}[5m]))
+              ) > 0.05
             for: 5m
             labels:
               severity: warning

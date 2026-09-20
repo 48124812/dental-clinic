@@ -1,243 +1,135 @@
-# 牙醫診所官方網站 (Dental Clinic Website)
+# Cloud-Native Dental Appointment Platform
 
-> Cloud-native learning project — 從 Design Thinking 一路走到上雲、可觀察。
->
-> 對應**台大雲原生課程**講義：12-Factor App、Design Thinking、Agile、應用 / 系統架構、Deployment、Observability、CI/CD with GitHub Actions。
+A full-stack appointment and clinic operations platform built around a reliable booking workflow, automated testing and delivery, containerized deployment, Kubernetes, and observability.
 
----
+This is an engineering portfolio project and is not intended to process real patient data in production.
 
-## 🎯 專案目標
+## Live demo
 
-打造一個**功能健全、可上雲、可觀察、可持續交付**的牙醫診所官方網站。
+- [Web demo](https://dental-clinic-web.onrender.com)
+- [API health](https://dental-clinic-api-ylv9.onrender.com/health)
 
-## 🧰 技術棧
+These are recorded deployment addresses; availability and the deployed revision have not been revalidated in this documentation pass. Use the [Technical Demo Guide](docs/DEMO.md) for a reproducible local demonstration with synthetic data. Do not run load tests against the public demo.
 
-| 層 | 技術 |
-|---|---|
-| Frontend | Next.js 16 (App Router, RSC) + TypeScript + Tailwind CSS 4 |
-| Backend  | Fastify 5 + TypeScript + Zod |
-| ORM      | Prisma 6 |
-| Database | PostgreSQL 16 (Alpine) |
-| Container| Docker + Docker Compose → Kubernetes (Phase 7) |
-| CI/CD    | GitHub Actions (Phase 6) |
-| Observability | Prometheus + Grafana + alert rules + SLO (local K8s verified); Loki pending |
-| Deployment | Render (live) + Kubernetes manifests (cluster-ready) |
-| Kubernetes | Docker Desktop Kubernetes deployed and locally verified |
-| Phase progress | Phase 7 complete; Phase 8 core monitoring complete, Loki and external alert delivery pending |
+## Core features
 
-## Current delivery status
+- Three-step booking: choose a doctor and time, enter synthetic contact details, and receive a reference code.
+- Appointment lookup with a reference code and exactly four phone suffix digits; cancellation at least 24 hours before the appointment.
+- Staff appointment dashboard with attendance updates.
+- Admin catalog for creating, viewing, editing, and deactivating doctors and services. Deactivation uses `active=false`; there is no hard-delete API.
+- Public doctor, treatment, business-hours, and case-study pages.
 
-- **Product increment (in progress):** Three-step appointment booking, slot
-  conflict protection, reference-code lookup/cancellation, and a durable email
-  outbox are implemented and validated locally. The email sender is safe for
-  Resend sandbox use and remains queued until its environment variables are set.
-- **Sandbox email setup:** configure `RESEND_API_KEY`,
-  `RESEND_FROM=onboarding@resend.dev`, and `EMAIL_TEST_RECIPIENT` with the
-  email verified in Resend. Do not commit these values; add them to Render's
-  environment settings instead.
-- **Still requiring configuration or follow-up:** staff/admin authentication,
-  actual admin CRUD UI, case-study assets, Loki, and Alertmanager email routing
-  are not marked complete until their credentials/assets or provider settings
-  exist.
+## Architecture diagram
 
-- **Live demo:** [Web](https://dental-clinic-web.onrender.com) · [API health](https://dental-clinic-api-ylv9.onrender.com/health)
-- **Delivery pipeline:** Pull request CI → merge to `main` → Render deployment → scheduled/manual API smoke test.
-- **Local Kubernetes:** API and Web each run two ready replicas; migration runs as a Job; Prometheus and Grafana verify API metrics locally.
-- **Release:** [v0.1.0](https://github.com/48124812/dental-clinic/releases/tag/v0.1.0)
+```mermaid
+flowchart LR
+  U[User] --> W[Next.js Web]
+  U -->|Booking / Staff / Admin| A[Fastify API]
+  W -->|Server Components| A
+  A --> DB[(PostgreSQL / Prisma)]
+  subgraph K[Kubernetes]
+    W
+    A
+    P[Prometheus] -->|Each API Pod /metrics| A
+    G[Grafana] -->|PromQL| P
+    P --> AM[Alertmanager]
+  end
+  CI[GitHub Actions] -->|main: SHA + latest| R[GHCR]
+  R -.->|Explicit SHA rollout| K
+```
 
-## Next product backlog
+PostgreSQL is external to the Kubernetes cluster. Ingress routes browser `/api` requests to Fastify; server-side Web requests use `INTERNAL_API_URL`. Render is a separate commit-triggered deployment path. Publishing to GHCR does not automatically deploy Kubernetes.
 
-1. **P0 — #3: Three-step online appointment.** Establish the `Appointment`
-   model, availability validation, booking API, and patient-facing booking UI.
-2. **P0 — #6: Today's appointment dashboard.** Builds on #3 so clinic staff
-   can view and update appointment attendance.
-3. **P0 — #7: Admin doctor and service management.** Replace demo seed data
-   with authenticated management workflows.
-4. **P0 — #8: Booking confirmation email.** Add a transactional email provider
-   after the appointment creation event exists.
-5. **P1 — #11, #12, #13:** Patient self-service, SEO, and the remaining
-   observability work (Loki plus external alert delivery).
+## Technology stack
 
----
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js 16 App Router, React, TypeScript, Tailwind CSS 4 |
+| Backend | Fastify 5, TypeScript, Zod |
+| Database | PostgreSQL 16, Prisma 6 |
+| Infrastructure | Docker, Docker Compose, Kubernetes, Kustomize |
+| Delivery | GitHub Actions, GHCR, Render Blueprint |
+| Observability | prom-client, Prometheus, Grafana, Alertmanager |
 
-## 🚀 第一次跑（從 clone 開始 5 分鐘上手）
+## Engineering highlights
 
-### 前置 (一次性安裝)
-1. **Node.js 22+ LTS** — `winget install OpenJS.NodeJS.LTS`
-2. **pnpm 10+** — `winget install pnpm.pnpm`
-3. **Git** — `winget install Git.Git`
-4. **Docker Desktop** — `winget install Docker.DockerDesktop`（並啟動）
-5. **GitHub CLI**（選用）— `winget install GitHub.cli`
+- **Booking consistency:** a PostgreSQL partial unique index reserves doctor/time slots only for non-cancelled appointments. Cancellation preserves history and allows rebooking; concurrent conflicts return 409. Appointment and email-outbox records are committed in one transaction.
+- **Deterministic tests:** Fastify `inject()` exercises real routes, validation, authorization, and services with isolated persistence and email mocks; a fixed clock covers cancellation boundaries.
+- **Delivery checks:** PRs run install, Prisma generation, lint, type-check, tests, load-script safety checks, production build, and Docker image builds. Only pushes to `main` publish GHCR images, tagged with commit SHA and `latest`.
+- **Deployment controls:** separate migration Jobs precede application rollout; deployment instructions use SHA-tagged images. `/health` checks process liveness, while `/ready` checks database reachability.
+- **Operational visibility:** each API Pod has a separate metrics target. Dashboards show request rate, 5xx ratio, p95 latency, process CPU, and RSS memory. Raw request data is excluded from normal logs and metric labels.
+- **Scaling configuration:** an opt-in HPA targets 65% CPU utilization with 2–10 replicas. k6 scripts restrict targets and default to a short, read-only smoke profile.
 
-> Windows PowerShell 補設定：`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`（以管理員）
+The repository contains routes, services, and repositories; some services and Admin routes call Prisma directly. It is not a claim that every module follows an identical layering pattern.
 
-### 跑起來
+## Quick start
+
+Requirements: Node.js 22+, pnpm 10 (repository pin: 10.0.0), and Docker Desktop. Run from the repository root in PowerShell. Copy templates only on first setup; preserve existing local configuration.
 
 ```powershell
-# 1. Clone
-git clone https://github.com/48124812/dental-clinic.git
-cd dental-clinic
-
-# 2. 安裝 deps
-pnpm install
-
-# 3. 複製 env 範本（兩處都要）
+pnpm install --frozen-lockfile
 Copy-Item .env.example .env
 Copy-Item apps/api/.env.example apps/api/.env
 Copy-Item apps/web/.env.local.example apps/web/.env.local
+pnpm --filter @dental-clinic/api db:generate
 
-# 4. 啟動 Postgres
-docker compose up -d
-# 等到 status (healthy)：
+docker compose up -d postgres
+# Wait for PostgreSQL to report healthy before applying migrations.
 docker compose ps
-
-# 5. 跑 DB migration + seed sample data
-pnpm --filter @dental-clinic/api db:migrate
+pnpm --filter @dental-clinic/api db:migrate:deploy
 pnpm --filter @dental-clinic/api db:seed
-
-# 6. 啟動兩個 dev server（兩個 terminal）
-pnpm --filter @dental-clinic/api dev   # http://localhost:3001
-pnpm --filter @dental-clinic/web dev   # http://localhost:3000
+pnpm dev
 ```
 
-打開 **http://localhost:3000** 看首頁。
+Web: `http://localhost:3000`; API: `http://localhost:3001`. Use only synthetic records. Optional API credentials should remain commented out when unused, because empty values fail Zod validation. Staff/Admin tokens are separate values of at least 24 characters and must never be placed in `NEXT_PUBLIC_*` variables.
 
----
+| Local file | Purpose |
+| --- | --- |
+| `.env` | Compose database/build settings; template credentials are local-demo placeholders |
+| `apps/api/.env` | Database connection, CORS, optional role tokens and email configuration |
+| `apps/web/.env.local` | Public API origin and site URL; public variables are embedded at build time |
 
-## 📁 專案結構
+For the complete Docker stack, optional role-token injection, migration/seed steps, and cleanup, follow [Local Docker Demo](docs/DEMO.md#local-docker-demo).
 
-```
-dental-clinic/
-├── apps/
-│   ├── api/                  Fastify 後端（layered: routes / services / repositories）
-│   │   ├── prisma/           schema + migrations + seed
-│   │   └── src/
-│   │       ├── config.ts     Zod 型別化 env config
-│   │       ├── app.ts        Fastify factory
-│   │       ├── server.ts     port binding + SIGTERM
-│   │       ├── routes/
-│   │       ├── services/
-│   │       ├── repositories/
-│   │       └── lib/          DB client、pure domain logic
-│   └── web/                  Next.js 16 前端
-│       └── src/
-│           ├── app/          App Router pages
-│           ├── components/
-│           └── lib/          API client + helpers
-├── packages/
-│   └── shared/               type-only DTO 共用 package
-├── docker-compose.yml        Postgres for dev
-├── docs/
-│   ├── LEARNING-NOTES.md     完整指令與概念筆記
-│   ├── PRODUCTION-CHECKLIST.md  上線前必做事項
-│   ├── adr/                  Architecture Decision Records
-│   ├── 01-discovery.md       Phase 1 Design Thinking 產出
-│   ├── 02-sprint-1-plan.md
-│   └── 03-sprint-1-retrospective.md
-└── scripts/                  PowerShell setup scripts
-```
+## Test and verification
 
----
-
-## ⚙️ 常用指令
-
-### 開發
 ```powershell
-pnpm --filter @dental-clinic/api dev      # 後端 dev (tsx watch)
-pnpm --filter @dental-clinic/web dev      # 前端 dev (Next + Turbopack)
-pnpm -r --parallel run dev                # 同時跑前後端
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:load-config
+pnpm test:integration # Isolated Docker PostgreSQL; includes migration and concurrent-booking tests.
+pnpm build
+docker compose config --quiet
+kubectl kustomize k8s/base
+kubectl kustomize k8s/observability
+kubectl kustomize k8s/autoscaling
 ```
 
-### 測試
-```powershell
-pnpm --filter @dental-clinic/api test     # 跑後端 unit tests (vitest)
-pnpm --filter @dental-clinic/web test     # 跑前端 unit tests
-```
+- Application tests: **68 passing** (API 58, Web 10), including email failure privacy and strict unhandled-rejection subprocess checks.
+- PostgreSQL integration tests: **11 passing**, separately run via `pnpm test:integration`; includes blank database migration, upgrade with retained records, cancellation/rebooking, Staff transition races, and two rounds of eight simultaneous booking requests (one 201 and seven 409 per round). This is correctness verification, not a capacity test.
+- Offline load-script safety checks: **13 passing**; they generate no HTTP traffic.
+- Lint, type-check, and production build pass. Kustomize rendering validates configuration, not running workloads.
+- A previous isolated Docker smoke run completed migration, synthetic seed, readiness, and **15/15 HTTP 200 responses** at 1 VU for 15 seconds. This verifies connectivity, responses, and thresholds, not capacity or autoscaling.
+- [Verification records](docs/09-project-verification.md) distinguish current checks from historical execution evidence. Cloud deployment, browser E2E, and external alert delivery are not covered by these local checks.
 
-### 型別 / Lint
-```powershell
-pnpm -r run typecheck                     # 全部 typecheck
-pnpm -r run lint                          # 全部 lint
-```
+## Current limitations
 
-### DB
-```powershell
-pnpm --filter @dental-clinic/api db:migrate    # 套用 migration（dev）
-pnpm --filter @dental-clinic/api db:seed       # 重新灌樣本資料
-pnpm --filter @dental-clinic/api db:studio     # 開 Prisma Studio 看資料
-pnpm --filter @dental-clinic/api db:reset      # 砍 DB 重來
-```
+- **HPA configured, pending runtime verification.** Metrics Server and a complete scale-up/scale-down experiment are still required.
+- **Authentication currently uses environment-managed tokens.** Individual accounts, production identity management, SSO, and fine-grained RBAC remain incomplete.
+- **Background email retry remains incomplete.** The persisted outbox triggers an immediate best-effort send attempt, with service and caller error boundaries. Failures produce safe structured logs without failing the committed booking. There is no retry worker or exactly-once guarantee; `retryable` is diagnostic metadata, not automatic retry. Local PostgreSQL booking concurrency is tested; distributed failure recovery and capacity have not been verified.
+- Availability currently uses fixed time slots; full scheduling validation, rate limiting, browser E2E, and real case-study assets remain incomplete.
+- Resend sandbox delivery requires external configuration and a verified test recipient. Alertmanager SMTP delivery, Loki, persistent monitoring storage, and long-term SLO evidence remain incomplete.
 
-### Production Build（驗證 build 真的能跑）
-```powershell
-pnpm --filter @dental-clinic/api build         # tsc -> dist/
-pnpm --filter @dental-clinic/api start         # node dist/server.js
-pnpm --filter @dental-clinic/web build         # next build -> .next/
-pnpm --filter @dental-clinic/web start         # next start (port 3000)
-```
+## Technical documentation
 
-### Current project status (2026-09-01)
+- [Technical Demo Guide](docs/DEMO.md)
+- [Booking uniqueness, migration safety, and PostgreSQL tests](docs/12-booking-consistency.md)
+- [Architecture decisions](docs/adr/README.md)
+- [Docker](docs/04-phase-5-containerization.md) · [Render](docs/05-render-deployment.md) · [Kubernetes / SHA rollout](docs/06-kubernetes-deployment.md)
+- [Observability](docs/08-observability.md) · [Verification records](docs/09-project-verification.md)
+- [HPA setup](docs/10-autoscaling-load-test.md) · [k6 scripts](load-tests/README.md)
 
-- **Phase 5 — Containerization: complete.** The repository now has production
-  Docker images for the web and API apps, plus Compose services for PostgreSQL
-  and Prisma migrations.
-- **Phase 6 — CI: complete.** GitHub Actions runs lint, type checks, unit
-  tests, production builds, and Docker image builds for pull requests and
-  pushes to `main`.
-- **Verified locally:** 19 unit tests, type checks, and production builds pass.
-  Start Docker Desktop and run `docker compose up --build -d` for the final
-  full-stack runtime check. Details are in
-  [`docs/04-phase-5-containerization.md`](docs/04-phase-5-containerization.md).
-- **Next:** Phase 7 deployment (cloud platform and managed database) and Phase
-  8 observability (metrics, dashboards, alerts, and SLOs).
+The project originated in cloud-native coursework and was extended with appointment workflows, test coverage, delivery automation, and operational tooling. The [original discovery](docs/01-discovery.md), [retrospective](docs/03-sprint-1-retrospective.md), and [learning notes](docs/LEARNING-NOTES.md) preserve that history; they are not the current deployment runbook.
 
-### Docker (Postgres)
-```powershell
-docker compose up -d                           # 啟動 Postgres
-docker compose ps                              # 看狀態
-docker compose logs -f postgres                # 看 log
-docker compose down                            # 停
-docker compose down -v                         # 停 + 刪資料 volume
-```
-
----
-
-## 🔑 環境變數策略
-
-| 檔案 | 給誰讀 | 內容 |
-|------|--------|------|
-| 根目錄 `.env` | Docker Compose | POSTGRES_USER, PASSWORD, DB |
-| `apps/api/.env` | Node app + Prisma CLI | DATABASE_URL, PORT, LOG_LEVEL, ... |
-| `apps/web/.env.local` | Next.js | NEXT_PUBLIC_API_URL |
-
-所有 `.env*` 都 gitignored；`.env.example` / `.env.local.example` 進 Git（只有 placeholder）。
-
-**API 啟動時用 Zod schema 強制驗證**（apps/api/src/config.ts）— 缺欄位或型別錯誤就 `process.exit(1)` 並印詳細錯誤，**不會帶著爛 config 啟動**。
-
----
-
-## 📅 Phase 進度
-
-- [x] **Phase 1**: Design Thinking — Empathy maps / User stories / AC / MVP
-- [x] **Phase 2**: 專案啟動 — Repo / Branch protection / Product Backlog / Sprint 1 plan
-- [x] **Phase 3**: Sprint 1 MVP — 首頁、醫師、療程、RWD (4 stories closed)
-- [x] **Phase 4**: 12-Factor 強化 — Zod config / Vitest / /ready probe / Shared types / ADRs
-- [x] **Phase 5**: Containerize — Dockerfile + Compose full stack；本機 runtime 驗證完成
-- [x] **Phase 6**: CI/CD with GitHub Actions — CI 完成；main 合併後會自動觸發 Render 部署
-- [~] **Phase 7**: Deploy — Render API、PostgreSQL 與 Web 已部署；目前使用可重複執行的展示資料 seed，下一步可延伸至 VM / K8s
-- [ ] **Phase 8**: Observability (Prometheus / Grafana / Loki / SLO)
-
----
-
-## 📖 延伸閱讀
-
-- [`docs/LEARNING-NOTES.md`](docs/LEARNING-NOTES.md) — 完整指令與概念筆記（從 Phase 1 開始累積）
-- [`docs/adr/`](docs/adr/) — 為什麼當初這樣決策（Architecture Decision Records）
-- [`docs/PRODUCTION-CHECKLIST.md`](docs/PRODUCTION-CHECKLIST.md) — 真上線前的法遵 / 安全 / 監控 checklist
-- [`docs/01-discovery.md`](docs/01-discovery.md) — Phase 1 設計思考產出（user stories, AC, NFRs）
-
----
-
-## 📜 License
-
-UNLICENSED — 內部學習專案，未經授權禁止商用。
+The repository identifier remains `dental-clinic`; package names, Docker image names, and Kubernetes resource names are unchanged. UNLICENSED.
