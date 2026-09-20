@@ -121,7 +121,51 @@ describe('appointment HTTP flow with isolated persistence', () => {
     expect(prisma.emailDelivery.create).toHaveBeenCalledWith({ data: {
       appointmentId: appointment.id, kind: 'BOOKING_CONFIRMATION', recipient: payload.patientEmail,
     } });
-    expect(deliverEmailDelivery).toHaveBeenCalledWith('delivery-test');
+    expect(deliverEmailDelivery).toHaveBeenCalledWith('delivery-test', expect.objectContaining({ error: expect.any(Function) }));
+  });
+
+  it.each(['create', 'cancel'] as const)('keeps committed %s successful when the email sender rejects', async (operation) => {
+    await app.close();
+    const logs: string[] = [];
+    app = await buildApp({ logStream: new Writable({ write(chunk, _encoding, callback) { logs.push(chunk.toString()); callback(); } }) });
+    const secrets = [...Object.values(payload).slice(2), 'postgresql://private:secret@internal.invalid/db', 'SENSITIVE_EMAIL_FAILURE'];
+    vi.mocked(deliverEmailDelivery).mockRejectedValue(new Error(secrets.join(' ')));
+    const unhandled: unknown[] = [];
+    const observe = (reason: unknown) => { unhandled.push(reason); };
+    process.on('unhandledRejection', observe);
+    try {
+      const appointment = await book();
+      if (operation === 'cancel') {
+        const response = await app.inject({ method: 'POST', url: `/api/appointments/${appointment.referenceCode}/cancel`, payload: { phoneLast4: '5678' } });
+        expect(response.statusCode).toBe(200);
+      }
+      // Drain background microtasks and a full event-loop turn before teardown.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(records[0]?.status).toBe(operation === 'create' ? 'BOOKED' : 'CANCELLED');
+      expect(prisma.emailDelivery.create).toHaveBeenCalledTimes(operation === 'create' ? 1 : 2);
+      expect(unhandled).toEqual([]);
+      const failures = logs.map((line) => JSON.parse(line)).filter((entry) => entry.event === 'email_delivery_unexpected_failure');
+      expect(failures).toHaveLength(operation === 'create' ? 1 : 2);
+      expect(failures[0]).toMatchObject({ deliveryId: 'delivery-test', errorCategory: 'unexpected', retryable: false });
+      for (const secret of secrets) expect(logs.join('')).not.toContain(secret);
+    } finally { process.off('unhandledRejection', observe); }
+  });
+
+  it.each(['lookup', 'transaction', 'unexpected-status-code'] as const)('returns a generic 500 for cancellation %s failures without leaking logs', async (stage) => {
+    await app.close();
+    const logs: string[] = [];
+    app = await buildApp({ logStream: new Writable({ write(chunk, _encoding, callback) { logs.push(chunk.toString()); callback(); } }) });
+    const appointment = await book();
+    const sensitive = 'postgresql://private:secret@internal.invalid/db SENSITIVE_DATABASE_ERROR';
+    if (stage === 'transaction') vi.mocked(prisma.$transaction).mockRejectedValue(new Error(sensitive));
+    else vi.mocked(prisma.appointment.findUnique).mockRejectedValue(Object.assign(new Error(sensitive), stage === 'unexpected-status-code' ? { statusCode: 400 } : {}));
+    const response = await app.inject({ method: 'POST', url: `/api/appointments/${appointment.referenceCode}/cancel`, payload: { phoneLast4: '5678' } });
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ error: 'Internal server error' });
+    expect(records[0]?.status).toBe('BOOKED');
+    expect(logs.join('')).toContain('Request failed');
+    expect(logs.join('')).not.toContain(sensitive);
+    expect(logs.join('')).not.toContain('SENSITIVE_DATABASE_ERROR');
   });
 
   it.each([{ patientEmail: 'invalid' }, { startsAt: 'invalid' }, { patientName: '' }, { doctorId: '' }])(
@@ -233,10 +277,19 @@ describe('appointment HTTP flow with isolated persistence', () => {
   });
 
   it('reports ready=503 but health=200 when DB is unavailable', async () => {
-    vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error('Test database unavailable'));
+    await app.close();
+    const logs: string[] = [];
+    app = await buildApp({ logStream: new Writable({ write(chunk, _encoding, callback) { logs.push(chunk.toString()); callback(); } }) });
+    const sensitive = 'postgresql://private:secret@internal.invalid/db SENSITIVE_DATABASE_ERROR';
+    vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error(sensitive));
     const ready = await app.inject('/ready');
     expect(ready.statusCode).toBe(503);
     expect(ready.json()).toMatchObject({ status: 'not-ready', checks: { db: { ok: false } } });
+    expect(ready.json().checks.db).toEqual({ ok: false, latencyMs: expect.any(Number) });
+    expect(ready.body).not.toContain(sensitive);
+    expect(ready.body).not.toContain('SENSITIVE_DATABASE_ERROR');
+    expect(logs.join('')).not.toContain('SENSITIVE_DATABASE_ERROR');
+    expect(logs.join('')).not.toContain('postgresql://');
     expect((await app.inject('/health')).statusCode).toBe(200);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });

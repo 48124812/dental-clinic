@@ -5,6 +5,27 @@ database, Fastify API, and Next.js web application in Singapore.
 
 ## Create the Blueprint
 
+For an existing database receiving the partial unique index migration, first
+follow [Booking consistency: deployment and recovery](12-booking-consistency.md#deployment-and-recovery).
+The operator must confirm the target service/database, backup, and maintenance
+window before triggering deployment. Verify that non-CANCELLED doctor/time pairs
+are unique; an intact old unique index guarantees this, otherwise perform a
+read-only data/index check first. Do not print patient fields.
+
+Pause booking, cancellation, and Staff writes, including traffic to old instances,
+before migration. The old Staff API can reactivate cancelled records. Creating
+the index can block writes; this is not a zero-downtime upgrade. This requirement
+is the same as the Kubernetes deployment guide, even though Render executes
+migration from the new container's startup script. A startup script does not
+automatically stop old instances from receiving writes.
+
+Coordinate automatic deployment so that it cannot bypass this maintenance window.
+Only resume writes after migration succeeds, the compatible API is ready, the
+index is verified, and old instances no longer serve traffic. If migration fails,
+keep writes paused, inspect its status and actual indexes, and follow the linked
+recovery procedure. Do not repeatedly redeploy or manually edit migration history.
+The steps below provision services; they do not implement a maintenance gate.
+
 1. Merge the PR that adds `render.yaml` to `main`.
 2. In the Render Dashboard, select **New > Blueprint**.
 3. Choose `48124812/dental-clinic`, set branch to `main`, and keep the default

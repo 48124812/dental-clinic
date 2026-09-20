@@ -21,6 +21,12 @@ API `registerMetrics()` 輸出 `dental_clinic_` 前綴。HTTP labels 為 `method
 
 學習目標：30 天成功 scrape 比例 99.5%、本機正常負載 p95 < 500ms、5xx ratio ≤ 5%。這些是待量測目標，不是已達成的 SLA；目前沒有長期 SLO 報告與 latency alert。
 
+## Email failure events
+
+預約 commit 後的 Email 嘗試屬於 best-effort。Email Service 沿用呼叫端的 Fastify logger，處理初始 DB 查詢、attempt 更新、Provider 呼叫與完成狀態寫入；正常失敗只記錄一次 `email_delivery_failed`。若連 FAILED 狀態也寫不進 DB，另記錄 `email_delivery_failure_record_failed`。呼叫端的最終 Promise boundary 只在 service 意外 reject 時記錄 `email_delivery_unexpected_failure`，不重複記錄已處理的失敗。
+
+事件只含固定名稱、delivery ID、固定 error category 與 retryable flag（及 logger 的標準時間／request ID 等 metadata）。不記錄姓名、電話、Email、健保識別資訊、HTML、DB URL、Provider body、原始 error message 或 stack；`EmailDelivery.lastError` 也只保存固定分類。`retryable` 只是診斷提示，沒有 worker 或自動重試。Provider 已接受但 DB 狀態寫入失敗時，寄送狀態可能不確定，不可盲目重寄；目前沒有 exactly-once 保證。
+
 ## 1. 準備 Secrets 與部署
 
 先依 [Kubernetes 部署](06-kubernetes-deployment.md) 啟動應用，確認 namespace 存在。

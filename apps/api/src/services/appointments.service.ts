@@ -1,8 +1,20 @@
 import { Prisma } from '@prisma/client';
+import type { FastifyBaseLogger } from 'fastify';
 import { prisma } from '../lib/prisma.js';
 import { deliverEmailDelivery } from './email.service.js';
 
 export class AppointmentConflictError extends Error {}
+export class CancellationDeadlineError extends Error {
+  constructor() { super('Appointments can only be cancelled at least 24 hours in advance.'); }
+}
+
+function startEmailDelivery(deliveryId: string, logger: FastifyBaseLogger): void {
+  // Final boundary also catches a future synchronous throw from the sender.
+  // This runs only after the booking/outbox transaction has committed.
+  void Promise.resolve().then(() => deliverEmailDelivery(deliveryId, logger)).catch(() => {
+    logger.error({ event: 'email_delivery_unexpected_failure', deliveryId, errorCategory: 'unexpected', retryable: false }, 'Email delivery failed');
+  });
+}
 
 export async function listAvailability(doctorId: string, day: string) {
   const startOfDay = new Date(`${day}T00:00:00+08:00`);
@@ -21,7 +33,7 @@ export async function listAvailability(doctorId: string, day: string) {
 export async function createAppointment(input: {
   doctorId: string; startsAt: string; patientName: string; patientPhone: string;
   nationalHealthId: string; patientEmail: string;
-}) {
+}, logger: FastifyBaseLogger) {
   const referenceCode = `DC-${crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`;
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -34,7 +46,7 @@ export async function createAppointment(input: {
       });
       return { appointment, deliveryId: delivery.id };
     });
-    void deliverEmailDelivery(result.deliveryId);
+    startEmailDelivery(result.deliveryId, logger);
     return result.appointment;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -54,12 +66,12 @@ export async function findAppointment(referenceCode: string, phoneLast4: string)
   return appointment;
 }
 
-export async function cancelAppointment(referenceCode: string, phoneLast4: string) {
+export async function cancelAppointment(referenceCode: string, phoneLast4: string, logger: FastifyBaseLogger) {
   const appointment = await findAppointment(referenceCode, phoneLast4);
   if (!appointment) return null;
   if (appointment.status === 'CANCELLED') return appointment;
   if (appointment.startsAt.getTime() - Date.now() < 24 * 60 * 60 * 1000) {
-    throw new Error('Appointments can only be cancelled at least 24 hours in advance.');
+    throw new CancellationDeadlineError();
   }
   const result = await prisma.$transaction(async (tx) => {
     const cancelled = await tx.appointment.update({
@@ -69,6 +81,6 @@ export async function cancelAppointment(referenceCode: string, phoneLast4: strin
     const delivery = await tx.emailDelivery.create({ data: { appointmentId: cancelled.id, kind: 'CANCELLATION', recipient: cancelled.patientEmail } });
     return { cancelled, deliveryId: delivery.id };
   });
-  void deliverEmailDelivery(result.deliveryId);
+  startEmailDelivery(result.deliveryId, logger);
   return result.cancelled;
 }

@@ -2,7 +2,37 @@
 
 保留 Next.js / Fastify / Prisma 架構，補齊 HTTP 層測試與交付文件。以下區分 P0/P1 初次結果與 P2 後續結果；未修改 Render、GHCR 或既有 Kubernetes 部署。
 
-## 取消後重訂修正（2026-09-20）
+## Final Audit 錯誤邊界與文件修正（2026-09-20）
+
+本輪開始時 Working Tree 乾淨；只修正背景 Email rejection、底層錯誤回應、Migration 維護提示與 Production Checklist 定位。未修改 Schema／Migration、CI、UI 或 HPA，未 Commit／Push／部署正式服務。
+
+| 本輪實際指令 | 最終結果 |
+| --- | --- |
+| `git diff --check` | 通過 |
+| `pnpm lint` | 通過，無 ESLint warning |
+| `pnpm typecheck` | 通過 |
+| `pnpm test` | **68 通過：API 58、Web 10** |
+| `pnpm test:load-config` | **13 通過**，沒有送出負載 |
+| `pnpm test:integration` | **11 通過**，僅隔離 Docker PostgreSQL |
+| `pnpm build` | API／Web production build 通過 |
+| `docker compose config --quiet` | 通過 |
+| `kubectl kustomize k8s/base` | 通過 |
+| `kubectl kustomize k8s/observability` | 通過 |
+| `kubectl kustomize k8s/autoscaling` | 通過，未部署 |
+
+本輪新增 17 項 application 回歸測試：建立／取消遇到 sender reject 仍保留成功結果、取消 lookup／transaction／帶錯誤 statusCode 的非業務失敗統一 500、10 項 Email Service 案例，以及 2 項 strict subprocess 案例。既有 readiness 測試另加上 response／log 不洩露底層錯誤的斷言。測試僅使用合成資料；沒有真的寄信或連正式資料庫。
+
+Email Service 的完整流程受 try/catch 保護，FAILED 狀態寫入也有獨立邊界；呼叫端在 commit 後啟動工作，最終 Promise catch 防止未來 sender 意外 reject。一般失敗由 service 記錄，意外逃出 service 才由 caller 記錄。沿用 Fastify logger，只輸出固定事件、delivery ID、固定 error category 與 retryable flag，不附原始 Error、stack、DB URL、Provider body、HTML 或病患資料；lastError 改存固定分類。這是 best-effort 通知，沒有 retry worker／自動重試或 exactly-once 保證。
+
+Unhandled rejection 驗證包含完整 event-loop drain，以及沒有安裝全域 rejection handler 的獨立 Node 子程序，使用 `--unhandled-rejections=strict`。初始 DB 查詢失敗、Provider 失敗加上失敗狀態寫入再次失敗時，建立為 201、取消為 200，程序 exit 0、stderr 為空，關閉 app 後再 drain 仍沒有背景錯誤。開發中曾因合成識別值超出既有長度限制導致 subprocess fixture 失敗，修正 fixture 後重跑通過，未放寬正式驗證規則。
+
+`/ready` 保留必要狀態、timestamp、DB latency 與失敗時 503，不回傳 error message。取消期限用明確的業務 Error Class，回固定 400；找不到仍為 404；其他錯誤正規化後交由既有 global handler 回通用 500，避免重複回覆或外洩。
+
+Kubernetes 與 Render 指南都要求先確認目標、備份、非取消資料唯一性及維護窗口，停止舊 API 寫入後 Migration，再換相容 API 並驗證才恢復寫入。Checklist 保留技術內容，但標示為未來假設性 hardening，不適用於目前公開 Portfolio 的可見性或正式使用宣稱。
+
+Docker PostgreSQL suite 實跑成功並清除其容器、network、tmpfs 與臨時 image；未對正式或共享 DB 操作。Prisma deprecation、Node VM Modules experimental 提示不是驗證失敗。本輪沒有 SMTP 送達、瀏覽器 E2E、完整 Compose UI 或 HPA runtime 實驗；HPA 仍為 **configured, pending runtime verification**。
+
+## 取消後重訂修正（2026-09-20，歷史紀錄）
 
 本輪開始時 Working Tree 乾淨。新增 custom SQL partial unique index，保留取消歷史；Staff 用條件式更新拒絕恢復 CANCELLED。未操作正式資料庫、Render 或部署中的 API，未 Commit／Push。設計與操作方式見 [Booking consistency](12-booking-consistency.md)。
 
@@ -98,7 +128,7 @@ Next build 使用工作區既有 `.env.local`；未將其中值複製至文件�
 
 ## 測試策略與邊界
 
-`apps/api/src/routes/appointments.test.ts` 目前有 30 個測試案例（29 個流程案例與 1 個日誌隱私案例）：
+`apps/api/src/routes/appointments.test.ts` 目前有 35 個測試案例（原有 30 個，加上本輪 5 個 Email／取消錯誤回應案例）；本輪另有 10 個 Email Service 與 2 個 strict subprocess 測試：
 
 - 真實 Fastify `buildApp()` + `inject()`，保留 Zod、service、角色 Token 驗證與 HTTP status mapping。
 - 使用 Vitest module mock 替換 Prisma IO singleton 與 email sender，不用 Render、真實 DB、網路 port 或郵件帳號。
@@ -124,7 +154,7 @@ Fake 模擬 Prisma partial unique index 的 P2002，本身不證明 PostgreSQL �
 - Admin 支援新增／讀取／修改／下架，沒有硬刪除。尚未以 E2E 覆蓋照片上傳與所有表單流程。
 - availability 目前產生固定 09:00–18:00 時段，建立 API 尚未完整驗證醫師 active、營業日與未來時間。
 - 取消後重訂已透過 partial unique index 與 PostgreSQL 並發測試修正；既有部署需套用新 Migration 及 API，公開 Render revision 未在本輪驗證。
-- Outbox 有持久化記錄與立即寄送嘗試，尚無背景重試、冪等寄信保證或寄送失敗復原操作介面。
+- Outbox 有持久化記錄與 best-effort 立即寄送嘗試，已有 service／caller rejection boundary 與安全事件紀錄；尚無背景重試、冪等寄信保證或寄送失敗復原操作介面。
 - Loki、監控持久化儲存、外部通知端到端、長期 SLO 量測未完成。
 - Render 是獨立的 commit-triggered build/deploy，Kubernetes 沒有自動 CD；branch protection、registry 權限與真實 SMTP 需外部設定。
 

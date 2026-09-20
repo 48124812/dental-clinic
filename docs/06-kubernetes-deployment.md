@@ -56,6 +56,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Invalid application manifests' }
 
 ## 3. Migration 成功後才 Rollout
 
+**本次 partial unique index 升級的維護前置條件：** 若目標尚未套用 `20260920000000_active_appointment_slot_unique`，先閱讀 [Booking consistency：部署與復原](12-booking-consistency.md#deployment-and-recovery)。建立索引可能阻擋寫入；這不是 zero-downtime migration。舊 Staff API 仍可能恢復取消記錄，不能只先換索引、讓舊 API 繼續接受寫入。
+
+執行下列部署命令前，操作者必須確認 cluster context、目標資料庫、備份與維護窗口；暫停或限制所有預約／取消／Staff 寫入（包含舊 replicas）。確認非 CANCELLED 的相同醫師／時間沒有重複：若舊唯一索引有效且未被手動移除，原有資料必然符合較寬鬆的新限制；否則先以目標環境的唯讀查核確認，勿直接執行 Migration。不要輸出病患欄位。
+
+安全順序是：停止寫入 → Migration 成功 → 部署相容的新 API → 確認舊 replicas 不再接收請求、新 API ready 與索引有效 → 恢復寫入。若 HPA 已啟用，單純縮 API 到 0 並不能可靠停止寫入，必須協調 autoscaler 與流量入口。以下命令本身不會自動建立維護模式；完成上述人工確認才可執行。
+
 ```powershell
 kubectl apply -f "$releaseDir/migrate.json"
 if ($LASTEXITCODE -ne 0) { throw 'Migration Job submission failed' }

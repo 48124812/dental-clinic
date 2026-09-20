@@ -106,7 +106,7 @@ kubectl kustomize k8s/observability
 kubectl kustomize k8s/autoscaling
 ```
 
-- Application tests: **51 passing** (API 41, Web 10).
+- Application tests: **68 passing** (API 58, Web 10), including email failure privacy and strict unhandled-rejection subprocess checks.
 - PostgreSQL integration tests: **11 passing**, separately run via `pnpm test:integration`; includes blank database migration, upgrade with retained records, cancellation/rebooking, Staff transition races, and two rounds of eight simultaneous booking requests (one 201 and seven 409 per round). This is correctness verification, not a capacity test.
 - Offline load-script safety checks: **13 passing**; they generate no HTTP traffic.
 - Lint, type-check, and production build pass. Kustomize rendering validates configuration, not running workloads.
@@ -117,7 +117,7 @@ kubectl kustomize k8s/autoscaling
 
 - **HPA configured, pending runtime verification.** Metrics Server and a complete scale-up/scale-down experiment are still required.
 - **Authentication currently uses environment-managed tokens.** Individual accounts, production identity management, SSO, and fine-grained RBAC remain incomplete.
-- **Background email retry remains incomplete.** The persisted outbox currently triggers an immediate send attempt; it has no retry worker or exactly-once guarantee. Local PostgreSQL booking concurrency is tested; distributed failure recovery and capacity have not been verified.
+- **Background email retry remains incomplete.** The persisted outbox triggers an immediate best-effort send attempt, with service and caller error boundaries. Failures produce safe structured logs without failing the committed booking. There is no retry worker or exactly-once guarantee; `retryable` is diagnostic metadata, not automatic retry. Local PostgreSQL booking concurrency is tested; distributed failure recovery and capacity have not been verified.
 - Availability currently uses fixed time slots; full scheduling validation, rate limiting, browser E2E, and real case-study assets remain incomplete.
 - Resend sandbox delivery requires external configuration and a verified test recipient. Alertmanager SMTP delivery, Loki, persistent monitoring storage, and long-term SLO evidence remain incomplete.
 

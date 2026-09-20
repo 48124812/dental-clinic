@@ -32,6 +32,8 @@ pnpm --filter @dental-clinic/api test
 
 `/health` 不查 DB；`/ready` 會查 DB，失敗為 503。自動測試覆蓋 DB 不可用時 health=200、ready=503；不需要停止共用資料庫來展示此差異。測試使用 mock，因此不等同真實 DB 故障演練。
 
+`/ready` 只回傳狀態、時間與 DB latency，不回傳底層錯誤。取消期限違規維持固定的 400，找不到預約為 404，其他取消失敗為通用 500。Email 為 commit 後的 best-effort 嘗試：寄送失敗不代表預約失敗，且不保證自動重試。可用 `pnpm test` 展示安全錯誤與 strict unhandled-rejection 回歸測試；不需真的寄信或停止共用 DB。
+
 ## Local Docker Demo
 
 需要 Docker Engine。以下使用本機 Compose DB，先確認沒有其他 dev server 佔用 3000/3001，也沒有另一個服務佔用 5432。不要對既有真實資料庫執行 seed。

@@ -1,6 +1,8 @@
-# Production Readiness Checklist
+# Future / Hypothetical Production Hardening Checklist
 
-> 從「學習專案」轉成「真實牙醫診所官網」之前，**整張清單必須打勾**。
+> 這是未來假設性部署的參考清單，不是目前已完成的交付狀態，也不代表專案 production-ready 或適合處理真實病患資料。即使完成清單，仍需獨立評估實際安全性、營運與適用要求。
+>
+> 目前專案是公開 Engineering Portfolio。下列 Repository 可見性與 README 定位調整，只是假設未來真實部署時才評估，不適用於目前公開 Portfolio Repository。
 >
 > 對應講義：12-Factor App、12-Factor SDLC P.74「Review checklist」、System Architecture「安全性」段落。
 
@@ -16,7 +18,7 @@
 
 ## 2. Repository 可見性
 
-- [ ] Repo 切 **Private**（Settings → General → Danger Zone → Change visibility）
+- [ ] 未來若轉為真實服務，再評估 Repository 可見性與存取政策；目前公開 Portfolio 不需要改為 Private
 - [ ] 確認所有合作者用 personal access token，不用密碼
 - [ ] Branch Protection：`main` 禁止直接 push、必須通過 CI、必須 1 人 review
 
@@ -54,7 +56,7 @@
 
 ## 7. 文件
 
-- [ ] README 標明這是 production 系統、聯絡窗口、緊急聯絡方式
+- [ ] 僅在未來確實完成正式部署與驗收後，才依事實更新 README 的部署狀態、聯絡窗口及緊急聯絡方式；目前保留 Portfolio 與禁止真實病患資料聲明
 - [ ] Runbook：常見問題的處理步驟（例如「預約寄不出 Email」）
 - [ ] ADR (Architecture Decision Record) 記錄重大技術選擇
 
@@ -68,4 +70,4 @@
 - 12-Factor SDLC P.74 review checklist：「Config/secrets externalized」、「Idempotency / retry-safety」、「Backward-compatible API and DB migrations」
 - System Architecture 安全性段落：功能安全（防小偷）+ 架構安全（防強盜）
 
-「學習時 public + 真信箱」沒關係，但**「上線前一週才急著補這些」必爆炸**。所以這份 checklist 我們現在就寫好，之後每個 Phase 結束時回來看看可以打勾哪一條。
+公開 Portfolio 使用合成資料；不應公開私人信箱、憑證或真實病患資料。本清單保留作為未來評估參考，不能取代個別系統的安全與部署驗收。

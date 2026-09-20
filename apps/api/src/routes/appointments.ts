@@ -16,7 +16,7 @@ export async function appointmentsRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/appointments', async (request, reply) => {
     const parsed = createSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid appointment data.', details: parsed.error.flatten() });
-    try { return reply.code(201).send(await service.createAppointment(parsed.data)); }
+    try { return reply.code(201).send(await service.createAppointment(parsed.data, request.log)); }
     catch (error) {
       if (error instanceof service.AppointmentConflictError) return reply.code(409).send({ error: error.message });
       throw error;
@@ -28,8 +28,16 @@ export async function appointmentsRoutes(app: FastifyInstance): Promise<void> {
   });
   app.post<{ Params: { referenceCode: string }; Body: { phoneLast4: string } }>('/api/appointments/:referenceCode/cancel', async (request, reply) => {
     try {
-      const appointment = await service.cancelAppointment(request.params.referenceCode, request.body?.phoneLast4 ?? '');
+      const appointment = await service.cancelAppointment(request.params.referenceCode, request.body?.phoneLast4 ?? '', request.log);
       return appointment ? appointment : reply.code(404).send({ error: 'Appointment not found.' });
-    } catch (error) { return reply.code(400).send({ error: error instanceof Error ? error.message : 'Unable to cancel appointment.' }); }
+    } catch (error) {
+      if (error instanceof service.CancellationDeadlineError) {
+        return reply.code(400).send({ error: 'Appointments can only be cancelled at least 24 hours in advance.' });
+      }
+      // Normalize unknown failures: an incidental statusCode on an IO error
+      // must not turn an infrastructure failure into a business 4xx response.
+      // The global handler logs safe metadata and sends a generic 500.
+      throw new Error('Unexpected cancellation failure');
+    }
   });
 }
