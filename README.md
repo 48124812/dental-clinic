@@ -1,8 +1,6 @@
 # 牙醫診所官方網站 (Dental Clinic Website)
 
-> Cloud-native learning project — 從 Design Thinking 一路走到上雲、可觀察。
->
-> 對應**台大雲原生課程**講義：12-Factor App、Design Thinking、Agile、應用 / 系統架構、Deployment、Observability、CI/CD with GitHub Actions。
+
 
 ---
 
