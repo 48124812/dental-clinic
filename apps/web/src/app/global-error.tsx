@@ -13,10 +13,8 @@
  */
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
 }) {
   return (
     <html lang="zh-Hant-TW">
@@ -25,7 +23,7 @@ export default function GlobalError({
           系統發生錯誤
         </h1>
         <p style={{ marginTop: '0.5rem', color: '#475569' }}>
-          抱歉，網站暫時無法正常運作。請稍後再試，或直接致電預約。
+          Demo 服務可能正在啟動或暫時無法連線，請稍候約一分鐘再試。本站不提供真實醫療預約服務。
         </p>
         {error.digest && (
           <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
@@ -33,7 +31,7 @@ export default function GlobalError({
           </p>
         )}
         <button
-          onClick={() => reset()}
+          onClick={() => window.location.reload()}
           style={{
             marginTop: '1.5rem',
             padding: '0.625rem 1.25rem',
@@ -48,7 +46,7 @@ export default function GlobalError({
           重新嘗試
         </button>
         <p style={{ marginTop: '1.5rem', fontSize: '0.875rem', color: '#475569' }}>
-          📞 預約專線：(02) 2345-6789
+          <a href="https://github.com/48124812/dental-clinic/blob/main/docs/DEMO.md#online-demo-fallback">查看 Demo 備用流程</a>
         </p>
       </body>
     </html>

@@ -2,6 +2,48 @@
 
 保留 Next.js / Fastify / Prisma 架構，補齊 HTTP 層測試與交付文件。以下區分 P0/P1 初次結果與 P2 後續結果；未修改 Render、GHCR 或既有 Kubernetes 部署。
 
+## Online Demo 發布前最終驗證（2026-09-21）
+
+由更新後的 `origin/main` 建立 `fix/online-demo-readiness`；建立分支時與 main 的 ahead／behind 均為 0。本次依序重新執行以下檢查，未沿用前輪結果：
+
+| 指令 | 結果 |
+| --- | --- |
+| `git diff --check` | 通過 |
+| `pnpm lint` | 通過，無 ESLint warning |
+| `pnpm typecheck` | 通過 |
+| `pnpm test` | **77 通過：API 58、Web 19** |
+| `pnpm test:load-config` | **13 通過**，離線檢查，不產生負載 |
+| `pnpm test:integration` | **11 通過**，包含空白 DB Migration、既有資料升級、Schema Drift 與並發預約檢查 |
+| `pnpm build` | API／Web production build 通過 |
+| `docker compose config --quiet` | 通過，不輸出解析後的環境變數 |
+| `kubectl kustomize k8s/base` | 通過 |
+| `kubectl kustomize k8s/observability` | 通過 |
+| `kubectl kustomize k8s/autoscaling` | 通過 |
+
+PostgreSQL 測試只使用隔離 Docker Network 與 tmpfs 資料庫，測試容器、Network 與臨時 Image 已清理。Prisma 設定棄用與 Node VM Modules experimental 訊息不是測試失敗。沒有執行正式 DB Migration、k6 負載測試、Render 手動部署或 Kubernetes apply；Kustomize 通過不代表 Kubernetes、Grafana 或 HPA 已在執行環境驗證。
+
+發布範圍僅包含 Online Demo 相關 UI、測試、繁體中文 README 與公開文件。舊 Web 網址僅留在歷史錯誤說明，所有有效公開 Demo 入口均使用 `https://dental-clinic-web-ejw6.onrender.com/`。`.private/`、環境檔、原始測試紀錄與建置產物不納入版本控制。本節記錄發布前檢查；PR CI 狀態以 GitHub Actions 的實際結果為準。
+
+## Online Demo Readiness Audit（2026-09-21）
+
+本輪從乾淨的 `main` 開始，修正 README 錯誤的公開 Web 網址與重複舊內容，補上三分鐘線上操作／Fallback、查詢導覽、假資料提醒、載入／錯誤畫面與預約錯誤提示。未修改 Appointment Schema、Migration、API 業務邏輯或部署設定。未 Commit、Push、建立 PR、修改 Remote 或部署。
+
+| 本輪實際驗證 | 結果 |
+| --- | --- |
+| `pnpm lint` | 通過，無 ESLint warning |
+| `pnpm typecheck` | 通過 |
+| `pnpm test` | **77 通過：API 58、Web 19**；新增 9 項安全錯誤提示測試 |
+| `pnpm build` | API／Web production build 通過；此輪 Web build 使用暫時的本機假 API origin，避免 UI 驗證觸及真實 DB，沒有改寫 `.env` |
+| `git diff --check` | 通過；已檢查修改與新增檔案，不含 Secret、實際預約紀錄或本機絕對路徑 |
+| 公開 Render 瀏覽器流程 | 建立、查詢、取消、相同醫師時段重訂、再次取消、舊取消紀錄查詢通過；另驗證 201／409／404／200 回應 |
+| 本機 production Web + 記憶體假 API | 載入提示、安全錯誤頁、重試後恢復、Demo 提醒／查詢連結、手機導覽、重選目前醫師仍可選時段、中文斷線提示通過；不連資料庫 |
+
+最初 sandbox 拒絕執行 `pnpm.exe` 與網路連線，屬環境權限限制；使用核准的執行環境重跑後通過。瀏覽器 audit helper 初次有 selector／序列化錯誤，修正 helper 後重跑；沒有把 helper 失敗計為產品測試成功。錯誤頁初版只 reset boundary，無法重取失敗的 Server Component；改為重新載入後，本機實際重試恢復成功。預約頁另避免再次點擊已選取醫師時誤進入無法結束的 loading 狀態。
+
+新增錯誤處理不呈現原始 API／network error，對 booking 或 cancellation 的不明結果提示先確認狀態，且不自動重送寫入。Role Token 沒有輸入公開瀏覽器，也沒有讀取 Render Secret。公開資源掃描是有限檢查，不等於完整滲透測試。
+
+所有公開測試僅使用假資料，三筆成功建立的測試預約均經正常取消，保留歷史；未刪資料、未直接連 DB。詳細網址、HTTP 結果、Cold Start 限制與 GitHub 部署 SHA 證據見 [Online audit](07-deployment-verification.md#online-readiness-audit-2026-09-21)。本輪未重跑 PostgreSQL integration、Docker Compose、k6 或 Kubernetes；下方舊結果仍是歷史證據。HPA 仍為 **configured, pending runtime verification**。本輪 UI 修改尚未發布至 Render。
+
 ## Final Audit 錯誤邊界與文件修正（2026-09-20）
 
 本輪開始時 Working Tree 乾淨；只修正背景 Email rejection、底層錯誤回應、Migration 維護提示與 Production Checklist 定位。未修改 Schema／Migration、CI、UI 或 HPA，未 Commit／Push／部署正式服務。
