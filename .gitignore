@@ -15,6 +15,10 @@ coverage/
 *.tsbuildinfo
 
 # ====== Environment variables (NEVER commit secrets) ======
+.private/
+# Retired public locations: prevent accidental reintroduction of private notes.
+docs/11-interview-delivery.md
+docs/INTERVIEW-HANDBOOK.md
 .env
 .env.*
 k8s/base/database-secret.yaml
@@ -22,6 +26,9 @@ k8s/observability/grafana-secret.yaml
 .env.local
 .env.*.local
 !.env.example
+!.env.local.example
+k8s/observability/alertmanager-config.yaml
+k8s/releases/
 
 # ====== IDE / OS ======
 .vscode/*
@@ -41,6 +48,7 @@ yarn-error.log*
 
 # ====== Testing artifacts ======
 test-results/
+load-tests/results/
 playwright-report/
 junit.xml
 *.lcov

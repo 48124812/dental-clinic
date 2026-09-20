@@ -45,6 +45,8 @@ export async function createAppointment(input: {
 }
 
 export async function findAppointment(referenceCode: string, phoneLast4: string) {
+  // Reject missing, partial, and non-string values before querying patient data.
+  if (typeof phoneLast4 !== 'string' || !/^\d{4}$/.test(phoneLast4)) return null;
   const appointment = await prisma.appointment.findUnique({
     where: { referenceCode }, include: { doctor: { select: { name: true } } },
   });

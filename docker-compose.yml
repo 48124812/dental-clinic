@@ -15,7 +15,7 @@
 services:
   postgres:
     # postgres:16-alpine
-    # - 16 = Postgres major version (穩定、production-ready)
+    # - 16 = PostgreSQL major version used by this project
     # - alpine = 基於 Alpine Linux 的最小 image (~80MB，比 postgres:16 約 400MB 小)
     image: postgres:16-alpine
     container_name: dental-clinic-db
@@ -109,5 +109,5 @@ services:
 
 volumes:
   # 由 Docker 託管的 named volume
-  # 預設位置：/var/lib/docker/volumes/dental-clinic_postgres-data/_data
+  # Storage location is managed by the local Docker engine.
   postgres-data:

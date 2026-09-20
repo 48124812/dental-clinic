@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Doctor } from '@/lib/api';
 
 interface Props {
@@ -53,11 +54,13 @@ export function DoctorAvatar({
 }) {
   const sizeClass = size === 'lg' ? 'w-24 h-24 text-3xl' : 'w-14 h-14 text-xl';
   if (photoUrl) {
-    /* eslint-disable-next-line @next/next/no-img-element */
     return (
-      <img
+      <Image
         src={photoUrl}
         alt={name}
+        width={size === 'lg' ? 96 : 56}
+        height={size === 'lg' ? 96 : 56}
+        unoptimized
         className={`${sizeClass} rounded-full object-cover shrink-0`}
       />
     );

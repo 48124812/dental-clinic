@@ -7,10 +7,10 @@ type: Opaque
 stringData:
   alertmanager.yml: |
     global:
-      smtp_smarthost: "smtp.resend.com:587"
-      smtp_from: "onboarding@resend.dev"
-      smtp_auth_username: "resend"
-      smtp_auth_password: "REPLACE_WITH_RESEND_API_KEY"
+      smtp_smarthost: "smtp.example.com:587"
+      smtp_from: "alerts@example.com"
+      smtp_auth_username: "REPLACE_WITH_SMTP_USERNAME"
+      smtp_auth_password: "REPLACE_WITH_SMTP_PASSWORD"
     route:
       receiver: clinic-admin-email
       group_by: [alertname]
@@ -19,5 +19,5 @@ stringData:
     receivers:
       - name: clinic-admin-email
         email_configs:
-          - to: "REPLACE_WITH_YOUR_RESEND_VERIFIED_EMAIL"
+          - to: "recipient@example.com"
             send_resolved: true
