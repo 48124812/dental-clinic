@@ -2,7 +2,31 @@
 
 保留 Next.js / Fastify / Prisma 架構，補齊 HTTP 層測試與交付文件。以下區分 P0/P1 初次結果與 P2 後續結果；未修改 Render、GHCR 或既有 Kubernetes 部署。
 
-## Public documentation pass
+## 取消後重訂修正（2026-09-20）
+
+本輪開始時 Working Tree 乾淨。新增 custom SQL partial unique index，保留取消歷史；Staff 用條件式更新拒絕恢復 CANCELLED。未操作正式資料庫、Render 或部署中的 API，未 Commit／Push。設計與操作方式見 [Booking consistency](12-booking-consistency.md)。
+
+| 實際執行指令 | 結果與範圍 |
+| --- | --- |
+| `pnpm --filter @dental-clinic/api db:generate` | Prisma Client 6.19.3 生成成功；不執行資料庫 Migration |
+| `pnpm lint` | 通過，無 ESLint warning |
+| `pnpm typecheck` | 通過 |
+| `pnpm test` | 原有 51 項通過：API 41、Web 10 |
+| `pnpm test:load-config` | 13 項通過，沒有送出負載 |
+| `pnpm test:integration` | 11 項真實 PostgreSQL 測試通過；獨立於上述 51 項 |
+| `pnpm build` | API TypeScript 與 Next.js production build 通過 |
+| `docker compose config --quiet` | 通過 |
+| `kubectl kustomize k8s/base` | 通過 |
+| `kubectl kustomize k8s/observability` | 通過 |
+| `kubectl kustomize k8s/autoscaling` | 通過；未部署 workload |
+
+PostgreSQL 16 Docker 實跑：空白 DB 套用三份 Migration；從前兩份 Migration 建庫並放入 BOOKED／CANCELLED 合成資料後升級；原記錄保留，舊索引移除，新 partial index 有效且 ready；Migration checksum 正確，schema/history diff 均無 Prisma 可見差異。Partial index 另以 PostgreSQL catalog 明確檢查，不能只依賴 Prisma diff。
+
+並發驗證：兩輪各 8 個同時送出的預約 HTTP requests，每輪 **1 筆 201、7 筆 409**；中間取消成功，第二輪可重訂。另驗證三次取消／重訂、不同 ID／reference code、歷史保留、不同醫師同時段、所有非取消狀態占位、Staff 禁止恢復、真實 row lock 控制的取消／Staff 交錯，以及失敗時沒有額外 outbox／audit 寫入。只 mock email sender，不 mock Prisma。測試容器、internal network、tmpfs 資料與臨時 image 均清除。
+
+初次 Docker Engine 未啟動是環境限制，啟動 Docker Desktop 後繼續驗證。開發中曾發現測試的 Prisma spy 型別／還原問題與 strict array typing 錯誤，已改用 PostgreSQL 真實鎖並修正型別；上述為修正後結果。Prisma package config deprecation 與 Node VM Modules experimental 提示不影響通過。未重新驗證完整 Compose UI、外部 Email、Render 或 HPA；HPA 仍為 **configured, pending runtime verification**。
+
+## Public documentation pass（歷史紀錄）
 
 本輪只整理公開文件與忽略規則，未修改 Appointment Schema、Migration 或取消流程。以下指令於本輪重新執行，並非沿用先前結果：
 
@@ -82,7 +106,7 @@ Next build 使用工作區既有 `.env.local`；未將其中值複製至文件�
 - 覆蓋建立 201、無效輸入 400、重複醫師／時段 409、正確與錯誤／缺漏／非四碼 suffix、提前 48h/24h 取消、不足 24h 拒絕、未授權 Staff/Admin、正確 Token 與未配置 Token、DB 正常與故障時 health/ready 差異。
 - 核對寫入結果與 outbox，拒絕取消時不能更新資料或新增通知。
 
-Fake 模擬 Prisma unique constraint 的 P2002，不證明 PostgreSQL 真實並行互斥或 transaction rollback；下一步應加專用 PostgreSQL integration tests，再加 booking/Staff/Admin 瀏覽器 E2E。原有 20 項純函數／metrics 測試保留，另外新增 1 項未知路徑 metrics 隱私測試。
+Fake 模擬 Prisma partial unique index 的 P2002，本身不證明 PostgreSQL 真實並行互斥或 transaction rollback；本輪另外新增真實 PostgreSQL integration tests，見本頁最新紀錄。booking/Staff/Admin 瀏覽器 E2E 仍未完成。原有 20 項純函數／metrics 測試保留，另外新增 1 項未知路徑 metrics 隱私測試。
 
 ## 本次修正
 
@@ -99,7 +123,7 @@ Fake 模擬 Prisma unique constraint 的 P2002，不證明 PostgreSQL 真實並�
 - Environment Token 不是個別使用者身分驗證；未有密碼登入、SSO、細緻 RBAC 或 lookup rate limiting。
 - Admin 支援新增／讀取／修改／下架，沒有硬刪除。尚未以 E2E 覆蓋照片上傳與所有表單流程。
 - availability 目前產生固定 09:00–18:00 時段，建立 API 尚未完整驗證醫師 active、營業日與未來時間。
-- schema 的 `(doctorId, startsAt)` unique 包含已取消記錄；availability 雖排除 CANCELLED，再次預約該時段仍衝突。此項需另設計 migration 與並行測試，未在本次擅自改資料模型。
+- 取消後重訂已透過 partial unique index 與 PostgreSQL 並發測試修正；既有部署需套用新 Migration 及 API，公開 Render revision 未在本輪驗證。
 - Outbox 有持久化記錄與立即寄送嘗試，尚無背景重試、冪等寄信保證或寄送失敗復原操作介面。
 - Loki、監控持久化儲存、外部通知端到端、長期 SLO 量測未完成。
 - Render 是獨立的 commit-triggered build/deploy，Kubernetes 沒有自動 CD；branch protection、registry 權限與真實 SMTP 需外部設定。

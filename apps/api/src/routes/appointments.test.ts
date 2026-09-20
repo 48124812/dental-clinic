@@ -50,7 +50,7 @@ describe('appointment HTTP flow with isolated persistence', () => {
     });
     vi.mocked(prisma.appointment.create as unknown as (args: Prisma.AppointmentCreateArgs) => Promise<StoredAppointment>).mockImplementation(async ({ data }) => {
       const startsAt = new Date(data.startsAt);
-      if (records.some((row) => row.doctorId === data.doctorId && row.startsAt.getTime() === startsAt.getTime())) {
+      if (records.some((row) => row.status !== 'CANCELLED' && row.doctorId === data.doctorId && row.startsAt.getTime() === startsAt.getTime())) {
         throw new Prisma.PrismaClientKnownRequestError('Unique slot constraint', {
           code: 'P2002', clientVersion: 'test', meta: { target: ['doctorId', 'startsAt'] },
         });

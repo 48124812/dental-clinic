@@ -53,7 +53,7 @@ PostgreSQL is external to the Kubernetes cluster. Ingress routes browser `/api` 
 
 ## Engineering highlights
 
-- **Booking consistency:** a database uniqueness constraint protects doctor/time slots; conflicts return 409. Appointment and email-outbox records are committed in one transaction.
+- **Booking consistency:** a PostgreSQL partial unique index reserves doctor/time slots only for non-cancelled appointments. Cancellation preserves history and allows rebooking; concurrent conflicts return 409. Appointment and email-outbox records are committed in one transaction.
 - **Deterministic tests:** Fastify `inject()` exercises real routes, validation, authorization, and services with isolated persistence and email mocks; a fixed clock covers cancellation boundaries.
 - **Delivery checks:** PRs run install, Prisma generation, lint, type-check, tests, load-script safety checks, production build, and Docker image builds. Only pushes to `main` publish GHCR images, tagged with commit SHA and `latest`.
 - **Deployment controls:** separate migration Jobs precede application rollout; deployment instructions use SHA-tagged images. `/health` checks process liveness, while `/ready` checks database reachability.
@@ -98,6 +98,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm test:load-config
+pnpm test:integration # Isolated Docker PostgreSQL; includes migration and concurrent-booking tests.
 pnpm build
 docker compose config --quiet
 kubectl kustomize k8s/base
@@ -106,6 +107,7 @@ kubectl kustomize k8s/autoscaling
 ```
 
 - Application tests: **51 passing** (API 41, Web 10).
+- PostgreSQL integration tests: **11 passing**, separately run via `pnpm test:integration`; includes blank database migration, upgrade with retained records, cancellation/rebooking, Staff transition races, and two rounds of eight simultaneous booking requests (one 201 and seven 409 per round). This is correctness verification, not a capacity test.
 - Offline load-script safety checks: **13 passing**; they generate no HTTP traffic.
 - Lint, type-check, and production build pass. Kustomize rendering validates configuration, not running workloads.
 - A previous isolated Docker smoke run completed migration, synthetic seed, readiness, and **15/15 HTTP 200 responses** at 1 VU for 15 seconds. This verifies connectivity, responses, and thresholds, not capacity or autoscaling.
@@ -115,14 +117,14 @@ kubectl kustomize k8s/autoscaling
 
 - **HPA configured, pending runtime verification.** Metrics Server and a complete scale-up/scale-down experiment are still required.
 - **Authentication currently uses environment-managed tokens.** Individual accounts, production identity management, SSO, and fine-grained RBAC remain incomplete.
-- **Cancelled appointment slots currently cannot be rebooked because of the database uniqueness constraint.** Availability excludes cancelled records, but the unique index still includes them, so a new booking can return 409.
-- **Background email retry and real-database concurrency verification remain incomplete.** The persisted outbox currently triggers an immediate send attempt; it has no retry worker or exactly-once guarantee.
+- **Background email retry remains incomplete.** The persisted outbox currently triggers an immediate send attempt; it has no retry worker or exactly-once guarantee. Local PostgreSQL booking concurrency is tested; distributed failure recovery and capacity have not been verified.
 - Availability currently uses fixed time slots; full scheduling validation, rate limiting, browser E2E, and real case-study assets remain incomplete.
 - Resend sandbox delivery requires external configuration and a verified test recipient. Alertmanager SMTP delivery, Loki, persistent monitoring storage, and long-term SLO evidence remain incomplete.
 
 ## Technical documentation
 
 - [Technical Demo Guide](docs/DEMO.md)
+- [Booking uniqueness, migration safety, and PostgreSQL tests](docs/12-booking-consistency.md)
 - [Architecture decisions](docs/adr/README.md)
 - [Docker](docs/04-phase-5-containerization.md) · [Render](docs/05-render-deployment.md) · [Kubernetes / SHA rollout](docs/06-kubernetes-deployment.md)
 - [Observability](docs/08-observability.md) · [Verification records](docs/09-project-verification.md)

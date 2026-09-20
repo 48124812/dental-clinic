@@ -16,11 +16,13 @@ This is an engineering portfolio project and is not intended to process real pat
 | 建立預約 | 開啟 `/appointments/new`，選醫師與至少兩天後的時段；填入完全虛構的姓名、電話、Email 與識別資訊。送出後保存本次 reference code；API 成功為 201。不要把識別欄位、電話或 Token 放入截圖。 |
 | 查詢預約 | 在 `/appointments/lookup` 輸入 reference code 與手機末四碼；正確值可查詢，錯誤或缺漏末四碼不得取得預約。 |
 | 展示取消限制 | 取消至少 24 小時後的預約應成功；另以獨立 demo 預約測試不足 24 小時時拒絕取消。若當下沒有適合時段，可用固定 clock 的自動測試展示界線，勿修改主機時間。 |
-| 已知取消缺口 | 取消後的原時段可能再次顯示可選，但資料庫 unique constraint 仍占用該醫師／時間，再次建立會回 409。這是未修正的限制，不當作重新開放時段成功。 |
+| 取消後重新預約 | 先套用最新 Migration 與 API。取消至少 24 小時後的預約，再選相同醫師／時段建立新預約，應回 201 且 ID／reference code 不同；用舊編號與末四碼仍可查到 CANCELLED 歷史。新預約存在時再次搶同一時段應回 409。 |
 | Staff workflow | 先設定 `STAFF_DASHBOARD_TOKEN`；開啟 `/staff/appointments`，輸入 Token、選取 demo 預約日期，將另一筆未取消預約標記出席或未到。錯誤 Token 應回 401。不要錄製 Token 輸入過程。 |
 | Admin workflow | 使用不同的 `ADMIN_DASHBOARD_TOKEN` 開啟 `/admin/catalog`，新增 demo 醫師／療程、編輯與下架，再檢查公開列表。下架是 `active=false`，不是刪除資料。 |
 
 帳號目前是 environment-managed tokens，並非個別使用者登入或 production identity management。Host 開發模式由 `apps/api/.env` 載入；Compose 需明確注入，見下節。
+
+Staff API 不允許將 CANCELLED 改成 CHECKED_IN／NO_SHOW（409）；BOOKED 不是合法的 Staff 更新目標（400）。未取消的預約仍可更正出席狀態。執行 `pnpm test:integration` 可在隔離 PostgreSQL 重現重訂、並發與 Migration 測試；只替換 email sender，不使用正式資料庫。部署鎖定與索引維護注意事項見 [Booking consistency](12-booking-consistency.md)。
 
 ```powershell
 Invoke-RestMethod http://localhost:3001/health
