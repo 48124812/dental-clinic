@@ -4,6 +4,8 @@ Cloud-Native Dental Appointment Platform 提供預約流程、診所操作、容
 
 This is an engineering portfolio project and is not intended to process real patient data in production.
 
+Render 免費資料庫到期時，依[換庫與初始化指南](13-render-database-replacement.md)保留原 Web/API 服務並切換新 DB。新庫不會保留舊預約編號。Seed 僅初始化空庫；已有任何業務資料即整批跳過，不會覆寫目錄。
+
 公開網站的實際驗證範圍見 [Online readiness audit](07-deployment-verification.md#online-readiness-audit-2026-09-21)；本機與基礎設施證據見 [verification records](09-project-verification.md)。公開 Render 網址不作為壓測目標。
 
 ## Online Demo Script (3 minutes)

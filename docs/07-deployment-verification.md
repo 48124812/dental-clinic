@@ -76,7 +76,7 @@ runs weekly. Its deployment target is stored in the repository variable
 ## Current limitations
 
 - Render Free services can sleep while idle, so the first request may be slow.
-- The Blueprint enables idempotent demo seed data. Admin catalog and Staff UI
+- The Blueprint defaults sample seeding to off; empty-database bootstrap is an explicit temporary opt-in. Admin catalog and Staff UI
   exist, but require separately configured environment tokens; full account
   authentication is not implemented.
 - Kubernetes manifests are a separate deployment example; this online audit

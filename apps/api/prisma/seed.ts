@@ -1,20 +1,14 @@
-import { PrismaClient, ServiceCategory } from '@prisma/client';
+import { PrismaClient, ServiceCategory, type Prisma } from '@prisma/client';
 
 /**
- * Seed script — 把樣本資料灌進空 DB。
- *
- * 對應講義：
- * - 12-Factor Factor 12 (P.39): Admin processes 應該獨立一支 script 跑
- * - Dev/prod parity (Factor 10): seed 只在 dev / staging 跑，prod 用真實資料
- *
- * 執行：pnpm --filter @dental-clinic/api db:seed
- *
- * 設計：upsert，重複跑不會炸（idempotent）。
+ * Synthetic demo catalog initializer, never a data repair/reset tool.
+ * Only seeds an entirely empty application database, in one transaction.
+ * Run explicitly after migrate deploy; disable RUN_SAMPLE_SEED after bootstrap.
  */
 
 const prisma = new PrismaClient();
 
-async function seedDoctors(): Promise<void> {
+async function seedDoctors(db: Prisma.TransactionClient): Promise<void> {
   const doctors = [
     {
       id: 'doc_wang',
@@ -80,16 +74,11 @@ async function seedDoctors(): Promise<void> {
   ];
 
   for (const d of doctors) {
-    await prisma.doctor.upsert({
-      where: { id: d.id },
-      update: d,
-      create: d,
-    });
+    await db.doctor.create({ data: d });
   }
-  console.log(`✅ Doctors: ${doctors.length} upserted`);
 }
 
-async function seedServices(): Promise<void> {
+async function seedServices(db: Prisma.TransactionClient): Promise<void> {
   const services: Array<{
     id: string;
     name: string;
@@ -196,16 +185,11 @@ async function seedServices(): Promise<void> {
   ];
 
   for (const s of services) {
-    await prisma.service.upsert({
-      where: { id: s.id },
-      update: s,
-      create: s,
-    });
+    await db.service.create({ data: s });
   }
-  console.log(`✅ Services: ${services.length} upserted`);
 }
 
-async function seedBusinessHours(): Promise<void> {
+async function seedBusinessHours(db: Prisma.TransactionClient): Promise<void> {
   // 一週 7 天；週日休診，週六 09:00-17:00，週一~五 09:00-21:00
   const hours = [
     { dayOfWeek: 0, isClosed: true, openTime: null, closeTime: null },    // Sun
@@ -218,37 +202,45 @@ async function seedBusinessHours(): Promise<void> {
   ];
 
   for (const h of hours) {
-    await prisma.businessHours.upsert({
-      where: { dayOfWeek: h.dayOfWeek },
-      update: h,
-      create: h,
-    });
+    await db.businessHours.create({ data: h });
   }
-  console.log(`✅ BusinessHours: ${hours.length} upserted`);
 }
 
-async function seedCaseStudies(): Promise<void> {
+async function seedCaseStudies(db: Prisma.TransactionClient): Promise<void> {
   const cases = [
     { id: 'case_whitening_demo', title: '居家美白療程示意', treatment: '美白療程', summary: '以患者口腔狀況評估後安排的居家美白療程示意。', beforeImage: 'https://placehold.co/800x600/e2e8f0/334155?text=Before', afterImage: 'https://placehold.co/800x600/dcfce7/166534?text=After', displayOrder: 1, active: true },
     { id: 'case_ortho_demo', title: '隱形矯正療程示意', treatment: '隱形矯正', summary: '依咬合與牙齒排列設計的矯正療程示意。', beforeImage: 'https://placehold.co/800x600/e2e8f0/334155?text=Before', afterImage: 'https://placehold.co/800x600/dbeafe/1d4ed8?text=After', displayOrder: 2, active: true },
   ];
-  for (const item of cases) await prisma.caseStudy.upsert({ where: { id: item.id }, update: item, create: item });
+  for (const item of cases) await db.caseStudy.create({ data: item });
 }
 
 async function main(): Promise<void> {
-  console.log('🌱 Seeding...');
-  await seedDoctors();
-  await seedServices();
-  await seedBusinessHours();
-  await seedCaseStudies();
-  console.log('🎉 Seed complete.');
+  const seeded = await prisma.$transaction(async (db) => {
+    // Serialize initializers and block application writes during the empty check.
+    // Only held during explicit bootstrap; reads remain possible.
+    await db.$executeRaw`SET LOCAL lock_timeout = '5s'`;
+    await db.$executeRaw`LOCK TABLE "Doctor", "Service", "BusinessHours", "CaseStudy",
+      "Appointment", "EmailDelivery", "User", "AuditLog" IN SHARE ROW EXCLUSIVE MODE`;
+    const counts = await Promise.all([
+      db.doctor.count(), db.service.count(), db.businessHours.count(), db.caseStudy.count(),
+      db.appointment.count(), db.emailDelivery.count(), db.user.count(), db.auditLog.count(),
+    ]);
+    if (counts.some((count) => count !== 0)) return false;
+    await seedDoctors(db);
+    await seedServices(db);
+    await seedBusinessHours(db);
+    await seedCaseStudies(db);
+    return true;
+  }, { timeout: 30_000 });
+  console.log(seeded ? 'Demo seed complete: empty database initialized.' : 'Demo seed skipped: existing application data preserved.');
 }
 
 main()
-  .catch((err: unknown) => {
-    console.error(err);
-    process.exit(1);
+  .catch(() => {
+    // Do not print database connection details or row data from Prisma errors.
+    console.error('Demo seed failed; transaction rolled back. Verify migrations and database access.');
+    process.exitCode = 1;
   })
-  .finally(() => {
-    void prisma.$disconnect();
+  .finally(async () => {
+    await prisma.$disconnect();
   });

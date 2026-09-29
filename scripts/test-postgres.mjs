@@ -31,7 +31,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   if (!ready) throw new Error('Isolated PostgreSQL did not become ready');
-  for (const name of ['dental_upgrade', 'dental_shadow']) {
+  for (const name of ['dental_upgrade', 'dental_shadow', 'dental_seed']) {
     docker(['exec', database, 'createdb', '-U', 'postgres', name]);
   }
   docker(['create', '--name', runner, '--network', network, '-w', '/repo/apps/api',

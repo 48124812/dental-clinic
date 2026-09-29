@@ -101,6 +101,8 @@ pnpm dev
 
 Web：`http://localhost:3000`；API：`http://localhost:3001`。僅使用合成資料。未使用的選填 API 憑證請保留註解，不要設為空字串，否則會無法通過 Zod 驗證。Staff／Admin Token 應分別設定，長度至少 24 字元，且不得放入 `NEXT_PUBLIC_*` 環境變數。
 
+Seed 只初始化完全空白的業務資料表；已有資料時整批跳過，不覆寫或補回資料。Render 的 `RUN_SAMPLE_SEED` 預設關閉，僅在新庫初始化時暫時啟用。免費 DB 到期後的手動換庫、維護中斷與驗收步驟見[Render 換庫指南](docs/13-render-database-replacement.md)。
+
 | 本機檔案 | 用途 |
 | --- | --- |
 | `.env` | Compose 資料庫與建置設定；範本憑證僅為本機展示用的佔位值 |
@@ -128,7 +130,7 @@ kubectl kustomize k8s/autoscaling
 以下為已記錄的驗證結果；各輪實際執行範圍與日期以[驗證紀錄](docs/09-project-verification.md)為準。
 
 - 應用程式測試：**77 項通過（API 58、Web 19）**，涵蓋安全預約錯誤提示、Email 失敗時的資料保護，以及嚴格模式下未處理 Promise Rejection 的子程序檢查。
-- PostgreSQL 整合測試：**11 項通過**，透過 `pnpm test:integration` 獨立執行。涵蓋空白資料庫 Migration、保留紀錄的升級、取消與重訂、Staff 狀態更新競爭，以及兩輪各八筆同時預約請求（每輪一筆 `201`、七筆 `409`）。這是正確性驗證，不是容量測試。
+- PostgreSQL 整合測試：**15 項通過**，透過 `pnpm test:integration` 獨立執行。涵蓋空白資料庫 Migration、保留紀錄的升級、取消與重訂、Staff 狀態更新競爭，以及兩輪各八筆同時預約請求（每輪一筆 `201`、七筆 `409`）；另包含空庫 Seed、並行初始化、保留既有資料、部分資料庫跳過與失敗回滾。這是正確性驗證，不是容量測試。
 - 離線負載腳本安全檢查：**13 項通過**，不會產生 HTTP 流量。
 - Lint、型別檢查與 Production Build 通過。Kustomize 渲染僅驗證設定，不代表工作負載已實際運行。
 - 先前的隔離 Docker Smoke Test 已完成 Migration、合成資料 Seed、Readiness 檢查，並在 1 VU、15 秒內取得 **15/15 次 HTTP 200**。這僅驗證連線、回應與門檻，不代表容量或自動擴縮能力。
@@ -148,6 +150,7 @@ kubectl kustomize k8s/autoscaling
 
 - [技術 Demo 指南](docs/DEMO.md)
 - [預約唯一性、Migration 安全與 PostgreSQL 測試](docs/12-booking-consistency.md)
+- [Render 免費 PostgreSQL 換庫與合成資料初始化](docs/13-render-database-replacement.md)
 - [架構決策紀錄](docs/adr/README.md)
 - [Docker](docs/04-phase-5-containerization.md) · [Render](docs/05-render-deployment.md) · [Kubernetes／SHA 版本部署](docs/06-kubernetes-deployment.md)
 - [可觀測性](docs/08-observability.md) · [驗證紀錄](docs/09-project-verification.md)
