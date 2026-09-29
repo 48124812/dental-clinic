@@ -422,11 +422,11 @@ export const prisma = new PrismaClient({ ... });
 ```
 不能每個 request `new` 一個，會把連線池打爆。
 
-**Seed 用 upsert（idempotent）**：
+**早期 Seed 用 upsert（歷史設計）**：
 ```ts
 await prisma.doctor.upsert({ where: { id }, update: data, create: data });
 ```
-重複跑不會炸，dev 友善。
+這種寫法可避免重複主鍵，但會覆寫相同 ID 的內容。目前專案已改為只初始化空庫的交易式 Seed，不再以此方式更新既有資料，詳見[換庫指南](13-render-database-replacement.md)。
 
 ### 3.6 分層架構
 

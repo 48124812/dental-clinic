@@ -2,6 +2,29 @@
 
 保留 Next.js / Fastify / Prisma 架構，補齊 HTTP 層測試與交付文件。以下區分 P0/P1 初次結果與 P2 後續結果；未修改 Render、GHCR 或既有 Kubernetes 部署。
 
+## Render 空資料庫替換與 Seed 保護（2026-09-29）
+
+本輪只修改 Seed、啟動註解、Render Blueprint、隔離測試與相關文件。既有 Prisma Schema 及全部 Migration（包括 partial unique index SQL）均未修改。沒有連線至 Render DB、操作 Dashboard、換庫、Commit、Push 或部署。
+
+| 實際驗證 | 結果 |
+| --- | --- |
+| `pnpm lint` | 通過 |
+| `pnpm typecheck` | 通過 |
+| `pnpm --filter @dental-clinic/api exec tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --skipLibCheck prisma/seed.ts` | 獨立 Seed 腳本型別檢查通過 |
+| `pnpm test` | **77 通過：API 58、Web 19** |
+| `pnpm test:integration` | **15 通過：既有 11、新增 Seed 4**；PostgreSQL 16 隔離容器 |
+| `pnpm build` | API／Web 通過 |
+| `node --check scripts/test-postgres.mjs` | 通過 |
+| Render YAML 本機解析與設定檢查 | 通過；DB 手動管理、`DATABASE_URL` 不由 Blueprint 覆寫、Seed 預設關閉；未執行 Render 遠端驗證／Apply |
+| `docker compose config --quiet` | 通過 |
+| 實際 API runtime image + 第二個隔離 PostgreSQL | 新空庫 Migration → Seed → Ready；保留 `true` 重啟跳過 Seed 且保留修改；改 `false` 重新建立 API 容器後沒有 Seed 訊息，Ready 正常 |
+
+新增測試涵蓋兩個 Seed 並行初始化僅一個寫入成功、4/9/7/2 筆合成目錄、新庫上的建立／查詢／取消／重訂／409 衝突、部分資料庫跳過、反覆執行保留編輯／刪除／預約與其他紀錄，以及注入後段寫入失敗後整筆回滾再安全重試。Seed 測試使用獨立 `dental_seed` 測試 DB，不與既有整合測試共用資料。
+
+首次整合測試因 Docker Engine 未啟動而未執行；啟動本機 Docker Desktop 後重跑通過。新增測試初版的 TypeScript 可空索引問題已修正後重跑。兩組測試容器、Internal Network、tmpfs 資料與臨時 Image 均清理完成；共用基礎映像與 Build Cache 保留。沒有具名資料 Volume、對外測試 Port 或公開負載測試。
+
+手動換庫與停機限制見[Render PostgreSQL 替換指南](13-render-database-replacement.md)。本機通過不代表 Render 已完成切換；新資料庫的目錄與預約仍需由維護者在切換後驗收。
+
 ## Online Demo 發布前最終驗證（2026-09-21）
 
 由更新後的 `origin/main` 建立 `fix/online-demo-readiness`；建立分支時與 main 的 ahead／behind 均為 0。本次依序重新執行以下檢查，未沿用前輪結果：

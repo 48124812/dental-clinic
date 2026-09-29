@@ -7,9 +7,9 @@ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   node /app/node_modules/prisma/build/index.js migrate deploy --schema=./prisma/schema.prisma
 fi
 
-# The public Render demo uses idempotent upserts so a newly provisioned
-# database has content immediately. Keep this opt-in: production systems
-# should load real clinic data through an admin process instead.
+# Temporarily opt in only to initialize a new, empty demo database.
+# The seed transaction skips any populated database and never updates rows.
+# Set this flag back to false after bootstrap; restarts must not seed normally.
 if [ "${RUN_SAMPLE_SEED:-false}" = "true" ]; then
   node --import tsx prisma/seed.ts
 fi

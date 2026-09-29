@@ -1,7 +1,14 @@
 # Phase 7 - Render deployment
 
-`render.yaml` is the deployment source of truth. It creates a free PostgreSQL
-database, Fastify API, and Next.js web application in Singapore.
+`render.yaml` manages the Fastify API and Next.js Web services in Singapore.
+Create the demo PostgreSQL database separately and set API `DATABASE_URL` in
+the Dashboard. The Blueprint uses `sync: false` for that secret, so a future
+sync does not restore a connection to an expired database. Removing the old
+database definition does not delete the existing database.
+
+For the 2026-10-01 expiry and a fresh synthetic-data replacement, follow
+[免費 PostgreSQL 換庫流程](13-render-database-replacement.md). Do not recreate
+the Web/API services; their existing public URLs should remain in use.
 
 ## Create the Blueprint
 
@@ -26,11 +33,12 @@ keep writes paused, inspect its status and actual indexes, and follow the linked
 recovery procedure. Do not repeatedly redeploy or manually edit migration history.
 The steps below provision services; they do not implement a maintenance gate.
 
-1. Merge the PR that adds `render.yaml` to `main`.
+1. Make the reviewed deployment changes available on the deployment branch.
+   Create the database separately and wait for it to become Available.
 2. In the Render Dashboard, select **New > Blueprint**.
 3. Choose `48124812/dental-clinic`, set branch to `main`, and keep the default
    Blueprint path: `render.yaml`.
-4. Review the three resources and select **Apply**.
+4. Review the two web services, supply `DATABASE_URL` privately, and select **Apply**.
 5. Wait for the API, web service, and database to show **Live**.
 
 ## Verify
@@ -45,11 +53,14 @@ https://<dental-clinic-api>.onrender.com/ready
 The API runs `prisma migrate deploy` from its container startup script before
 starting Fastify because Render's pre-deploy command is a paid feature.
 
-For this learning project's public demo, `RUN_SAMPLE_SEED=true` also runs the
-idempotent Prisma sample-data script after migrations. It populates doctors,
-services, and business hours on a new Render database. Keep this setting off
-for a real clinic, where data should be managed through an authenticated admin
-workflow.
+`RUN_SAMPLE_SEED` defaults to `false`. Temporarily set it to `true` only for a
+new empty demo database, then return it to `false` after initialization.
+The seed acquires transaction-scoped table locks, checks all application tables,
+and inserts the synthetic catalog atomically only if they are all empty.
+Existing data makes it skip the entire seed; it never overwrites rows or repairs
+partial catalogs. A failed seed rolls back and exits nonzero, preventing startup.
+Do not enable bootstrap while accepting application writes. This is a portfolio
+demo, not a real-patient deployment procedure.
 
 ## Continuous deployment
 
