@@ -72,7 +72,7 @@ flowchart LR
 
 - **預約一致性：** PostgreSQL Partial Unique Index（部分唯一索引）只對非取消預約限制醫師與時段的唯一性。取消後保留歷史並釋放時段；同時搶同一時段的衝突回傳 `409`。預約與 Email Outbox 紀錄在同一筆交易中提交。
 - **可重現測試：** 透過 Fastify `inject()` 測試實際路由、資料驗證、權限檢查與 Service，搭配隔離的資料存取及 Email Mock；以固定時鐘驗證取消期限邊界。
-- **交付檢查：** PR 執行套件安裝、Prisma Generate、Lint、型別檢查、測試、負載腳本安全檢查、Production Build 與 Docker Image Build；獨立 Job 使用隔離 Docker PostgreSQL 驗證 Migration、並發預約與 Seed。只有推送到 `main` 且全部必要 Job 通過才發布 GHCR 映像，並保留 Commit SHA 與 `latest` 標籤。新增 PostgreSQL Job 尚待推送後確認 GitHub Actions 實跑結果。
+- **交付檢查：** PR 執行套件安裝、Prisma Generate、Lint、型別檢查、測試、負載腳本安全檢查、Production Build 與 Docker Image Build；獨立 Job 使用隔離 Docker PostgreSQL 驗證 Migration、並發預約與 Seed。只有推送到 `main` 且全部必要 Job 通過才發布 GHCR 映像，並保留 Commit SHA 與 `latest` 標籤。各次遠端執行結果以該 PR 的 GitHub Actions Checks 為準。
 - **部署控制：** 獨立的 Migration Job 在應用程式更新前執行，部署文件以 SHA 標籤指定映像版本。`/health` 檢查程序是否存活，`/ready` 檢查資料庫是否可連線。
 - **運行狀態觀測：** 每個 API Pod 都有獨立的 Metrics Target。Dashboard 顯示請求速率、5xx 比率、p95 延遲、程序 CPU 與 RSS 記憶體；一般 Log 與 Metric Label 不包含原始請求資料。
 - **擴縮設定：** 選用的 HPA 以 CPU 使用率 65% 為目標，副本數介於 2–10。k6 腳本限制測試目標，預設執行短時間、唯讀的 Smoke Test（冒煙測試）。
