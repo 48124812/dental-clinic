@@ -1,6 +1,18 @@
 # API HPA 與 k6 展示
 
-狀態：**configured, pending runtime verification**。已設定不等於已證明擴容；完整通過需保存 CPU、desired/current replicas、Pod Ready 與縮容時間序列。
+> 2026-10-11 最新結果：本機暫時降低 HPA target 至 10%，已驗證 2 → 3 → 4，停止負載並恢復 65% 後縮回 2；不是原設定的容量驗證。Grafana 五類指標查詢與資料來源已驗證。見 [HPA 紀錄](16-local-load-observation.md)與[監控展示](17-local-monitoring-demo.md)。下方日期段落保留歷史狀態。
+
+狀態：**降低門檻的本機擴縮機制已驗證；原本 65% 負載擴縮與容量仍未驗證**。已設定不等於已證明擴容；完整通過需保存 CPU、desired/current replicas、Pod Ready 與縮容時間序列。
+
+歷史實驗（2026-10-10）：20 VU ramp 的 7,551 次請求與三個 Threshold 通過；含負載後至少五分鐘共 44 筆採樣，CPU 最高 23%、副本皆為 2，沒有觸發擴容。k6 設定時間與容器 elapsed 有未解釋差異，不作容量基準；詳見[結果與限制](16-local-load-observation.md)。以下各日期段落保留先前步驟的歷史狀態。
+
+2026-10-10：已在專用 kind 叢集完成 1 VU／15 秒 Smoke Test，15/15 HTTP 200、p95 3.16 ms；先恢復失效的暫存 DB，Ready 後才送流量。HPA 可讀 CPU 且維持 2 replicas，但未進行負載擴縮測試。詳細結果及暫存 DB 限制見[驗證紀錄](09-project-verification.md)。
+
+2026-10-09 本機進度：隔離 Kubernetes 部署、監控與 k6 Smoke Test 已執行；Metrics Server v0.8.1 因 Docker Desktop kubelet 憑證缺少 IP SAN 無法抓取指標，已撤除本輪安裝，未停用 kubelet TLS 驗證。HPA 與漸進負載仍待前置條件解決，詳見[本輪結果](09-project-verification.md#local-kubernetes-2026-10-09)。
+
+同日後續：已另建 kind `dental-hpa-lab`，使用 CA 簽署且具有正確 SAN 的 kubelet serving certificate；Metrics API 與 `kubectl top` 已實際通過，未使用 `--kubelet-insecure-tls`。操作與限制見[專用叢集憑證指南](14-local-kubernetes-certificates.md)。此環境與既有 Docker Desktop 叢集不同；下階段命令必須指定 `.private/kind-lab/kubeconfig` 與 `kind-dental-hpa-lab` context。尚未在新叢集部署應用／HPA，也未驗證擴縮。
+
+再後續部署已完成：專用 kind 叢集已有合成 DB、API/Web、監控與 HPA，CPU 指標可讀且 idle 維持 2 replicas；本機入口與預約流程已驗證。見[部署操作紀錄](15-local-kubernetes-demo.md)。這更新了「尚未部署」的歷史狀態，但仍未進行負載 Scale Up／Scale Down 實驗。
 
 ## 架構與先決條件
 
