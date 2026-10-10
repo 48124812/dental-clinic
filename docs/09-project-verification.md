@@ -1,6 +1,163 @@
 # 專案補強與驗證紀錄
 
+## 最新本機機制與監控驗證（2026-10-11）
+
+發布前重新執行：`pnpm lint`、`pnpm typecheck`、`pnpm test`（77：API 58／Web 19）、`pnpm test:load-config`（13）、`pnpm test:integration`（15）、`pnpm build`、`docker compose config --quiet`、`docker compose build api web` 均通過。`kubectl kustomize` 對 base、observability、autoscaling、local-kind/app、local-kind/metrics-server 均通過。Integration runner 完成後清理本輪容器、網路與測試映像。這些是本機結果，GitHub Actions 的 PR 執行結果需另外檢查。
+
+- 專用 kind 叢集暫時將 HPA CPU target 從 65% 降為 10%，保留 request 與 behavior，觀察到 2 → 3 → 4 個 Ready Pod。停止負載並恢復完整原設定後，自動縮回 2。不是原本 65% 門檻的容量驗證。
+- k6 唯讀請求 3,423 次、錯誤率 0%、p95 約 2.784 ms、exit code 0；Job／ConfigMap 已清理。計時差異仍待調查，見[實驗紀錄](16-local-load-observation.md)。
+- Prometheus 兩個 targets UP、Grafana Dashboard 五類查詢及 datasource proxy 成功；90 次低頻唯讀展示請求全部 HTTP 200。未保存瀏覽器截圖、未驗證外部告警送達，見[監控展示](17-local-monitoring-demo.md)。
+
+下方依日期保留先前的驗證範圍，不能把歷史「尚未驗證」當成最新狀態。
+
 保留 Next.js / Fastify / Prisma 架構，補齊 HTTP 層測試與交付文件。以下區分 P0/P1 初次結果與 P2 後續結果；未修改 Render、GHCR 或既有 Kubernetes 部署。
+
+## 專用 kind 漸進負載與 HPA 觀察（2026-10-10）
+
+實際使用既有 k6 ramp profile、PEAK_VUS=20，對專用 kind API 的合成醫師目錄送出唯讀請求；沒有對 Render 加壓。API 原有 CPU request 100m、HPA target 65%、2–10 replicas 皆未修改。
+
+- k6 exit code 0；7,551 requests、checks 7,551/7,551、HTTP error rate 0%，p95 2.213 ms，三個 Threshold 通過。
+- `pnpm test:load-config` 本輪 13 項通過；`git diff --check` 通過。沒有應用程式碼變更，不重跑完整應用測試。
+- 約每 20 秒採樣，含至少 5 分鐘負載後觀察，共 44 筆；CPU 最高採樣 23%，desired/current/Ready 皆為 2，Pod UID 未變且 restart count 未增加。
+- HPA Scale Up／Scale Down **未觀察到**，不能宣稱已驗證自動擴縮。此次負載未達 CPU 目標，也不是容量上限測試。
+- **計時限制：** k6 顯示設定的 10m scenario 完成，但 running elapsed 與容器時間約 9m14s，原因未確認。延遲為 k6 報告值；不以此當精確 600 秒或吞吐量基準，後續效能實驗前先調查計時一致性。
+- run ID `ramp-20261010-244e74dd`，原始摘要、Log、HPA／節點時間序列在 Git ignored `load-tests/results/`。本次 Job、Pod、ConfigMap 已刪除，應用與 DB 保留運行。
+
+方法、門檻、停止條件、完整結果與限制見[漸進負載觀察紀錄](16-local-load-observation.md)。未 Commit、Push，未更動其他叢集。
+
+## 專用 kind k6 Smoke Test（2026-10-10，台北日期）
+
+Context 固定 `kind-dental-hpa-lab`，使用 `.private/kind-lab/kubeconfig`，namespace `dental-clinic`。本輪沒有對 Render 或另一個 Docker Desktop 叢集送流量，沒有執行 ramp 或高負載。
+
+前置檢查發現 API 0/2 Ready：原 `lab-db` 的容器為 Terminated/Unknown、exit code 255、Pod Failed、Service 沒有可用端點；其他應用容器亦有近期重啟。無法僅據此判斷確切停止原因。這是原本 `restartPolicy: Never`、記憶體 emptyDir 暫存 DB 的生命週期限制，不是 k6 壓垮服務。確認未發送負載後，保留舊失效 Pod，建立替代 `lab-db-smoke-20261010-55ea0c36`，使用既有 Secret 與相同 DB Service selector，執行新的一次性 Migration／Seed Jobs，恢復 API 2/2 Ready。
+
+替代庫重新建立合成目錄，不是舊資料還原；沒有搬移舊預約。執行前再核對 API 的 DB host 為 `lab-db`、database 為 `dental_lab`（只比對，不列印連線值），`/ready` 200、合成醫師 4 筆，才啟動 k6。
+
+| 本輪檢查 | 結果 |
+| --- | --- |
+| `pnpm test:load-config` | 13 項通過；離線驗證公開目標拒絕、唯讀操作與負載設定 |
+| k6 image／腳本 | `grafana/k6:1.0.0`，原有 `load-tests/read-only.js`，沒有修改 allowlist |
+| 目標 | 叢集內 `http://api.dental-clinic.svc.cluster.local:3001/api/doctors`；透過 Service DNS，無 hostAliases 或 port-forward |
+| Profile | smoke，1 VU，設定 duration 15 秒，每次迭代 sleep 1 秒 |
+| HTTP／checks | 15 次 HTTP 200、15/15 checks、HTTP error rate 0% |
+| 延遲 | k6 報告 avg 2.23 ms、p95 3.16 ms、max 4.2 ms |
+| Thresholds | error rate < 1%、p95 < 500 ms、checks > 99%，全部通過 |
+| 執行狀態 | Job Complete，容器 exit code 0 |
+| HPA | 結束後快照 2 replicas、CPU 約 4% / 65%；不宣稱負載擴縮已通過 |
+
+本機原始 Log、執行摘要與 HPA 前後快照保存在 Git ignored `load-tests/results/smoke-20261010-55ea0c36/`。測試僅 GET 目錄、丟棄 response bodies，沒有新增預約。只有 15 筆樣本，這是連線／回應／Threshold 的 Smoke Test，不是 Capacity Test 或 SLO 證據。
+
+本輪 k6 Job、其 Pod、ConfigMap 及已完成的恢復用 Migration／Seed Jobs 已清理；替代 DB 與原有應用／監控保留運行，舊失效 DB Pod 未刪除。未 Commit／Push；沒有修改應用或負載腳本，不重跑完整應用測試。下一步可評估此隔離叢集的漸進負載，但應先處理暫存 DB 的停止／重建流程，避免將失去資料的環境當成可靠持久化部署。
+
+## 專用 kind 叢集應用部署（2026-10-09 後續）
+
+在新建的 `kind-dental-hpa-lab` 部署 `dental-clinic` namespace，與另一個 `docker-desktop` context 的同名 namespace 分開。使用已發布的 SHA `0d8a1757a0232add134dc407f490eafb6e6f1441` 映像、新的合成 PostgreSQL、獨立 Migration／Seed Job；沒有使用 Render 連線或搬移真實資料。
+
+新增 `k8s/local-kind/app/` opt-in overlay：引用既有 autoscaling manifests、固定 API/Web SHA，補上暫存 DB 與僅供本機轉發的同源 gateway。重建順序及入口管理見[本機部署指南](15-local-kubernetes-demo.md)。
+
+| 檢查 | 實際結果 |
+| --- | --- |
+| Migration／Seed | 均 Complete；Seed 空庫初始化成功，沒有啟用每次 API 啟動 Seed |
+| API／Web／gateway | 2/2、2/2、1/1 Ready |
+| HPA | 已建立、能讀到 CPU，idle 約 3–4% / 65%，2 replicas；不是負載擴縮測試 |
+| 本機同源入口 | `http://127.0.0.1:18080/doctors` 200，`/api/doctors` 回 4 筆目錄 |
+| HTTP 預約流程 | 同源入口建立、查詢、取消、重訂成功；新舊 ID／編號不同、原取消紀錄保留，測試新預約也已取消；非瀏覽器 E2E |
+| API health／ready | 200／200，另測重複有效預約回 409 |
+| Prometheus／Grafana | 兩個 targets UP，health、Dashboard API 與五類指標查詢通過 |
+| 首次監控檢查 | 早於 rollout 完成發生 fetch failed；等待 Ready 後重跑完整檢查通過 |
+
+此次沒有執行 k6、ramp、容量或 HPA Scale Up／Scale Down；HPA 負載行為仍待驗證。Alertmanager 只配置無外部通知的 receiver，沒有驗證通知送達。
+
+與前次暫存 lab 不同，**此次專用叢集部署與 loopback port-forward 保留運行**供使用者操作；資料庫為 emptyDir，刪除 DB Pod／叢集會遺失合成資料。原始摘要、臨時操作腳本及 port-forward PID/Log 在 Git ignored `.private/kind-app/`。沒有 Commit、Push 或改動原本 `docker-desktop` 部署。這輪只改 Kubernetes／文件，沒有重跑應用程式單元測試；不能沿用上一輪結果當作本輪新測試。
+
+## 專用 kind 叢集憑證修正（2026-10-09 後續）
+
+先前的 Metrics Server TLS 阻擋已在**另一個新建的專用叢集**解決，原 Docker Desktop 叢集不變。新增 `k8s/local-kind/cluster.yaml` 與 Metrics Server Kustomize overlay，詳細重建、CSR 審查及清理流程見[憑證指南](14-local-kubernetes-certificates.md)。
+
+| 實際驗證 | 結果 |
+| --- | --- |
+| kind v0.31.0 下載與官方 SHA256 | 相符；binary 僅存放在 Git ignored 工具目錄 |
+| 新叢集 `dental-hpa-lab` | Kubernetes v1.34.3、node Ready；獨立 kubeconfig，不修改預設 context |
+| kubelet serving CSR | requester、subject、usages、self-signature 與 SAN 經審查後，只批准明確指定的一筆 |
+| 憑證驗證 | 叢集 CA 簽署、含節點 DNS/IP SAN，`openssl verify -CAfile ... -verify_ip ...` 通過 |
+| Metrics Server v0.8.1 | 使用 `--kubelet-certificate-authority`，沒有 `--kubelet-insecure-tls`；rollout 通過 |
+| APIService／資源指標 | Available=True，`kubectl top nodes`、`kubectl top pods -A` 成功 |
+| 初始化暫態 | rollout 剛完成前查詢出現 Metrics API not available；等待 APIService Available 後通過，未忽略錯誤 |
+
+此輪僅驗證憑證與 Metrics API，不重跑應用測試或負載，不代表 HPA 擴縮成功。上游 APIService 的 `insecureSkipTLSVerify` 仍為原設定，API aggregation 的 TLS 強化另待處理；不能將 kubelet 這一段驗證成功延伸成全叢集安全保證。
+
+專用叢集與 Metrics Server 保留供後續使用，原本 `docker-desktop` context 與既有牙醫部署保留。工具、kubeconfig 與原始證據在 `.private/kind-lab/`，不可提交 Git；未 Commit／Push。
+
+<a id="local-kubernetes-2026-10-09"></a>
+## CI 資料庫測試與本機 Kubernetes 實測（2026-10-09，台北日期）
+
+本輪在 `.github/workflows/ci.yml` 新增獨立的 PostgreSQL integration Job，直接呼叫 `pnpm test:integration`。測試依賴在 Docker builder 安裝，host 不另執行 install；不需要 repository Secret 或外部 DB。GHCR publish 現在同時依賴 verify、integration、container-build。尚未 Commit／Push，**GitHub Actions 上新增 Job 的結果待驗證**；下面是本機實際結果。
+
+### 本輪命令結果
+
+| 命令 | 實際結果 |
+| --- | --- |
+| `pnpm lint` | 通過 |
+| `pnpm typecheck` | 通過 |
+| `pnpm test` | 77 通過：API 58、Web 19 |
+| `pnpm test:load-config` | 13 通過；不產生 HTTP 流量 |
+| `pnpm test:integration` | 15 通過：Migration／預約 11、Seed 4；Docker 測試資源已清理 |
+| `pnpm build` | API TypeScript 與 Next.js 16.1.7 Production Build 通過；使用工作區既有 Web 環境檔，未列印其值 |
+| `docker compose config --quiet` | 通過 |
+| `kubectl kustomize k8s/base` | 通過 |
+| `kubectl kustomize k8s/observability` | 通過 |
+| `kubectl kustomize k8s/autoscaling` | 通過；只有渲染，不是 HPA 實測 |
+
+Prisma 6 的 `package.json#prisma` 棄用提示及 Node experimental VM Modules 提示沒有造成測試失敗。本輪沒有修改應用程式、Prisma Schema、Migration 或 Seed。
+
+### 隔離方式與部署
+
+- Context 固定 `docker-desktop`，Kubernetes v1.34.3、Docker Engine 29.3.1；單節點可配置 20 CPU、約 15.3 GiB 記憶體。這不是獨占資源，原本應用也在運行。
+- 新建 `dental-lab-20261009` namespace，沒有修改既有 `dental-clinic` namespace，也沒有讀取其資料庫 Secret。
+- 新 PostgreSQL 16 使用記憶體 `emptyDir` 與獨立隨機密碼，只有合成資料，沒有主機公開 port、沒有 PVC、不連 Render。此暫存 DB 不適合正式持久化。
+- API/Web 使用已發布的完整 SHA tag `sha-0d8a1757a0232add134dc407f490eafb6e6f1441`。API 實際執行 digest 為 `sha256:eff67fc9fda37322ed5bf62c14fe9ab6161e82300053b37dbf78c809b0287d12`。本機測試的是工作區原始碼，叢集測試的是此已發布映像，兩者範圍分開記錄。
+- 從既有 base manifests 渲染，僅在本機產物替換 namespace 與映像；獨立 Migration Job 完成後執行一次 Seed Job，再部署 API/Web 各 2 replicas。一般 API 啟動的 Migration／Seed 旗標仍為 false。
+- Observability 使用既有 manifests，將 Prometheus 的 namespace DNS 改指此 lab；Grafana 使用臨時憑證，Alertmanager 使用不寄送的測試 receiver。
+
+### 功能、監控與故障驗證
+
+| 驗證 | 實際結果與界線 |
+| --- | --- |
+| Migration／Seed Job | 均 Complete；Seed 顯示空庫初始化成功 |
+| API/Web rollout | 各 2/2 Ready |
+| `/health`、`/ready` | HTTP 200；DB check 成功 |
+| 目錄 | 4 位醫師、9 項療程 |
+| 合成 HTTP 預約流程 | 建立 201、重複 409、查詢 200、取消 200、同時段重訂 201、新舊 ID／編號不同、舊取消紀錄仍可查；新預約也已取消 |
+| Web | `/doctors` HTTP 200，SSR HTML 含 API 回傳的合成醫師；未操作瀏覽器表單，不是完整 E2E |
+| Prometheus | 兩個 API Pod Target 均 UP；Pod 重建後新的 Target 也 UP |
+| Grafana | `/api/health` 200，認證後 Dashboard API 可讀到 `Dental Clinic API Overview`；尚未保存瀏覽器截圖 |
+| 五類 Dashboard 指標 | 原始 PromQL 的 Request Rate、5xx ratio、p95 latency、process CPU、RSS 均回成功且有有限數值；這是資料查詢驗證，不是長期 SLO |
+| Alert Rules | 兩條規則均 health=ok、inactive；沒有觸發告警或驗證外部送達 |
+| Pod 故障恢復 | 只刪除 lab 中一個 API Pod，Deployment 建立新 UID 的替代 Pod，恢復 2/2 Ready；重跑功能與監控檢查成功。未持續採樣故障期間請求，因此不宣稱零中斷 |
+
+第一次臨時驗證腳本誤以首頁應含醫師姓名作斷言，失敗後核對程式並改查 `/doctors`，再驗證通過；這是驗證腳本假設錯誤，未修改網站來配合測試。
+
+### k6 Smoke Test
+
+使用既有 `load-tests/read-only.js` 與 `grafana/k6:1.0.0` 在 lab 執行 Job：1 VU、15 秒、只 GET `/api/doctors`。腳本 allowlist 未修改；Job 的 `hostAliases` 將允許的 API 名稱明確映射至 **lab API Service 的 ClusterIP**，不會連到舊 `dental-clinic` namespace。下次必須重新取 lab Service IP，不可沿用歷史 IP。
+
+- 15 次請求，15/15 checks 通過；HTTP error rate 0%，p95 2.64 ms。
+- 三個 Threshold 皆通過，Job Complete。
+- 樣本僅 15 筆且在本機單節點執行，不是 Capacity Test，也不是正式網站效能數字。
+
+### HPA：Environment Blocked
+
+最初沒有 Metrics Server。確認安裝清單中沒有既有同名資源後，嘗試在本機安裝官方 **v0.8.1**；rollout 等待 90 秒逾時。Log 明確顯示 kubelet TLS 驗證失敗：`x509: cannot validate certificate ... because it doesn't contain any IP SANs`，APIService 為 `False (MissingEndpoints)`。
+
+沒有加上 `--kubelet-insecure-tls`，也沒有修改現有節點憑證；已移除本輪新裝的 Metrics Server 及其新增 RBAC／APIService 資源，恢復安裝前狀態。HPA 維持 **configured, pending runtime verification**；未執行 ramp、高負載、Scale Up／Scale Down 或容量測試。
+
+下一步需先在專用 lab 規劃可驗證的 kubelet serving certificate（CA 信任及連線位址 SAN），或使用已提供相容憑證的隔離叢集；確認 `kubectl top pods` 可用後，才執行 HPA 負載實驗。不要把關閉 TLS 驗證當成正式環境修法。參考 [Metrics Server requirements](https://github.com/kubernetes-sigs/metrics-server#requirements)。
+
+### 原始證據與清理
+
+本機實驗腳本與不含 Secret 的功能摘要、監控查詢、Pod 重建紀錄及 k6 Log 保存在 Git ignored 的 `.private/k8s-lab/`，不提交公開 repository。本頁只保留可公開的彙總。
+
+測試後刪除本輪新建的 namespace，連同暫存 PostgreSQL、測試 Job、Secret、API/Web 與監控服務；未刪除既有 `dental-clinic` 資源、Compose 容器或既有資料。Integration Test 的容器、網路與臨時 image 也已移除。下載的共用 image／build cache 保留。
 
 ## Render 空資料庫替換與 Seed 保護（2026-09-29）
 

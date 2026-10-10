@@ -1,0 +1,46 @@
+# Disposable synthetic data only. Deleting this Pod loses its database.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lab-db
+  labels:
+    app: dental-lab-db
+spec:
+  restartPolicy: Never
+  containers:
+    - name: postgres
+      image: postgres:16-alpine
+      env:
+        - name: POSTGRES_DB
+          value: dental_lab
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secret
+              key: POSTGRES_PASSWORD
+      readinessProbe:
+        exec:
+          command: [pg_isready, -U, postgres, -d, dental_lab]
+        periodSeconds: 3
+      resources:
+        requests: {cpu: 100m, memory: 128Mi}
+        limits: {cpu: "1", memory: 512Mi}
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumes:
+    - name: data
+      emptyDir:
+        medium: Memory
+        sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-db
+spec:
+  selector:
+    app: dental-lab-db
+  ports:
+    - port: 5432
+      targetPort: 5432

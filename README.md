@@ -22,7 +22,7 @@
 
 **驗證紀錄（2026-09-21，台北時間）：** 已確認修正後的 Web 網址，以及公開預約、取消、重訂流程可用。首次 API 健康檢查耗時 42.40 秒；這是單次觀測的請求時間，不是冷啟動時間保證。詳見[實測結果與部署證據](docs/07-deployment-verification.md#online-readiness-audit-2026-09-21)。
 
-**展示限制：** 僅限假資料。Staff／Admin 需要由環境變數管理的私人 Token，不屬於匿名展示範圍；Email 不保證送達。本次線上驗證不代表 Kubernetes 已部署；**HPA 已完成設定，尚待執行環境驗證（configured, pending runtime verification）**。其餘見[目前限制](#current-limitations)。禁止對 Render 執行負載測試。
+**展示限制：** 僅限假資料。Staff／Admin 需要由環境變數管理的私人 Token，不屬於匿名展示範圍；Email 不保證送達。本次線上驗證不代表 Kubernetes 已部署；**HPA 已在專用本機叢集以暫時降低門檻驗證擴縮，原本 65% 負載擴縮與容量仍未驗證**。其餘見[目前限制](#current-limitations)。禁止對 Render 執行負載測試。
 
 <a id="core-features"></a>
 ## 核心功能
@@ -72,7 +72,7 @@ flowchart LR
 
 - **預約一致性：** PostgreSQL Partial Unique Index（部分唯一索引）只對非取消預約限制醫師與時段的唯一性。取消後保留歷史並釋放時段；同時搶同一時段的衝突回傳 `409`。預約與 Email Outbox 紀錄在同一筆交易中提交。
 - **可重現測試：** 透過 Fastify `inject()` 測試實際路由、資料驗證、權限檢查與 Service，搭配隔離的資料存取及 Email Mock；以固定時鐘驗證取消期限邊界。
-- **交付檢查：** PR 執行套件安裝、Prisma Generate、Lint、型別檢查、測試、負載腳本安全檢查、Production Build 與 Docker Image Build。只有推送到 `main` 才發布 GHCR 映像，並保留 Commit SHA 與 `latest` 標籤。
+- **交付檢查：** PR 執行套件安裝、Prisma Generate、Lint、型別檢查、測試、負載腳本安全檢查、Production Build 與 Docker Image Build；獨立 Job 使用隔離 Docker PostgreSQL 驗證 Migration、並發預約與 Seed。只有推送到 `main` 且全部必要 Job 通過才發布 GHCR 映像，並保留 Commit SHA 與 `latest` 標籤。各次遠端執行結果以該 PR 的 GitHub Actions Checks 為準。
 - **部署控制：** 獨立的 Migration Job 在應用程式更新前執行，部署文件以 SHA 標籤指定映像版本。`/health` 檢查程序是否存活，`/ready` 檢查資料庫是否可連線。
 - **運行狀態觀測：** 每個 API Pod 都有獨立的 Metrics Target。Dashboard 顯示請求速率、5xx 比率、p95 延遲、程序 CPU 與 RSS 記憶體；一般 Log 與 Metric Label 不包含原始請求資料。
 - **擴縮設定：** 選用的 HPA 以 CPU 使用率 65% 為目標，副本數介於 2–10。k6 腳本限制測試目標，預設執行短時間、唯讀的 Smoke Test（冒煙測試）。
@@ -135,11 +135,12 @@ kubectl kustomize k8s/autoscaling
 - Lint、型別檢查與 Production Build 通過。Kustomize 渲染僅驗證設定，不代表工作負載已實際運行。
 - 先前的隔離 Docker Smoke Test 已完成 Migration、合成資料 Seed、Readiness 檢查，並在 1 VU、15 秒內取得 **15/15 次 HTTP 200**。這僅驗證連線、回應與門檻，不代表容量或自動擴縮能力。
 - [驗證紀錄](docs/09-project-verification.md)區分各輪檢查與歷史執行證據；另外的[線上驗證](docs/07-deployment-verification.md#online-readiness-audit-2026-09-21)涵蓋公開瀏覽器預約流程。外部告警送達仍未驗證。
+- 2026-10-09 本機 Kubernetes 隔離實測：API/Web 各 2 個 Ready 副本、預約取消重訂、Prometheus 兩個 API Target、Grafana Dashboard 載入與五類指標查詢、Pod 重建及 k6 1 VU Smoke Test 通過。未執行完整瀏覽器 E2E、容量或 HPA 擴縮測試；環境與阻擋原因見[驗證紀錄](docs/09-project-verification.md#local-kubernetes-2026-10-09)。
 
 <a id="current-limitations"></a>
 ## 目前限制
 
-- **HPA 已完成設定，尚待執行環境驗證（configured, pending runtime verification）。** 仍需 Metrics Server 與完整的 Scale Up／Scale Down 實驗。
+- **本機 HPA 降低門檻的機制驗證已完成，原本 65% 門檻的負載擴縮仍未驗證。** 原設定 20 VU 實驗最高 CPU 採樣為 23%，副本維持 2；後續暫時改為 10% 時觀察到 2 → 3 → 4，停止負載並恢復 65% 後縮回 2。另有未解釋的 k6／容器計時差異，不作容量基準，見[完整觀察](docs/16-local-load-observation.md)。
 - **目前使用環境變數管理的 Token 進行身分驗證。** 個人帳號、正式環境身分管理、SSO 與細緻的 RBAC 尚未完成。
 - **背景 Email 重試尚未完成。** 預約提交後，持久化的 Outbox 會觸發一次盡力寄送，Service 與呼叫端均有錯誤保護。失敗時記錄安全的結構化 Log，不會使已提交的預約失敗。目前沒有 Retry Worker 或 Exactly-once 保證；`retryable` 只是診斷資訊，不代表自動重試。已驗證本機 PostgreSQL 的並發預約正確性，但未驗證分散式故障復原與容量。
 - 可預約時間目前採固定時段；完整排班驗證、Rate Limiting、完整瀏覽器 E2E 測試與真實案例素材仍未完成。
@@ -155,6 +156,10 @@ kubectl kustomize k8s/autoscaling
 - [Docker](docs/04-phase-5-containerization.md) · [Render](docs/05-render-deployment.md) · [Kubernetes／SHA 版本部署](docs/06-kubernetes-deployment.md)
 - [可觀測性](docs/08-observability.md) · [驗證紀錄](docs/09-project-verification.md)
 - [HPA 設定](docs/10-autoscaling-load-test.md) · [k6 腳本](load-tests/README.md)
+- [專用本機 Kubernetes 叢集與 kubelet 憑證](docs/14-local-kubernetes-certificates.md)
+- [專用 kind 叢集部署與本機 Demo 入口](docs/15-local-kubernetes-demo.md)
+- [本機漸進負載、HPA 觀察與量測限制](docs/16-local-load-observation.md)
+- [本機 Prometheus／Grafana 展示](docs/17-local-monitoring-demo.md)
 
 本專案起源於雲端原生課程，後續擴充預約流程、測試、自動化交付與維運工具。[初期需求探索](docs/01-discovery.md)、[回顧紀錄](docs/03-sprint-1-retrospective.md)與[學習筆記](docs/LEARNING-NOTES.md)保留了開發背景，但不作為目前的部署操作手冊。
 

@@ -42,6 +42,23 @@ jobs:
       - name: Production build
         run: pnpm build
 
+  integration:
+    name: PostgreSQL migrations and booking integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The runner builds its dependencies inside Docker and creates a private,
+      # disposable PostgreSQL. No repository secrets or Render DB are used.
+      - name: Verify migrations, concurrency, and seed protection
+        run: pnpm test:integration
+
   container-build:
     name: Validate container images
     runs-on: ubuntu-latest
@@ -58,7 +75,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    needs: [verify, container-build]
+    needs: [verify, integration, container-build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
