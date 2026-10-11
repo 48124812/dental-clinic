@@ -36,24 +36,48 @@
 <a id="architecture-diagram"></a>
 ## 架構圖
 
+公開功能展示與映像交付：
+
 ```mermaid
 flowchart LR
-  U[使用者] --> W[Next.js Web]
-  U -->|預約 / Staff / Admin| A[Fastify API]
-  W -->|Server Components| A
-  A --> DB[(PostgreSQL / Prisma)]
-  subgraph K[Kubernetes]
-    W
-    A
-    P[Prometheus] -->|各 API Pod 的 /metrics| A
-    G[Grafana] -->|PromQL| P
-    P --> AM[Alertmanager]
-  end
-  CI[GitHub Actions] -->|main: SHA + latest| R[GHCR]
-  R -.->|指定 SHA 版本部署| K
+  U[公開訪客] --> RW[Render Next.js Web]
+  U -->|瀏覽器 API 請求| RA[Render Fastify API]
+  RW -->|伺服器端請求| RA
+  RA -->|Prisma| RD[(Render PostgreSQL)]
+  SRC[GitHub Repository] --> CI[GitHub Actions]
+  CI -->|main 檢查通過| REG[GHCR：SHA / latest]
+  REG -.->|手動選定 SHA| LAB[本機 kind]
+  SRC -.->|Render Commit 觸發建置| RW
+  SRC -.->|Render Commit 觸發建置| RA
 ```
 
-在此 Kubernetes 部署設計中，PostgreSQL 位於叢集外部。Ingress 將瀏覽器的 `/api` 請求導向 Fastify；Web 伺服器端透過 `INTERNAL_API_URL` 呼叫 API。Render 是另一條由 Commit 觸發的部署路徑；發布映像至 GHCR 不會自動部署 Kubernetes。
+專用本機 kind 的執行架構（全部使用合成資料）：
+
+```mermaid
+flowchart TB
+  L[本機操作者] -->|18080 port-forward| GW[Nginx gateway]
+  GW -->|頁面| W[Web Service / Next.js]
+  GW -->|/api/| A[API Service / Fastify Pods]
+  W -->|INTERNAL_API_URL| A
+  A -->|Prisma| DB[(lab-db：暫存 PostgreSQL)]
+  K6[k6 唯讀 Job] --> A
+  G[Grafana] -->|PromQL| P[Prometheus]
+  P -->|抓取 /metrics| A
+  P --> AM[Alertmanager：無外部通知]
+  H[HPA] -->|調整 API Deployment 副本| A
+  H -->|讀取 Pod CPU| MS[Metrics Server]
+  MS -->|HTTPS 資源指標| KL[kubelet]
+```
+
+**兩個環境互相獨立。** Render 提供公開預約功能；本機 kind 用於 Kubernetes、監控與 HPA 實驗，目前 Prometheus 沒有抓取 Render。GitHub Actions 發布 GHCR 映像不會自動部署 kind，Render 也不是使用本機 HPA。
+
+| 部署方式 | 入口與資料庫 | 初始化與用途 |
+| --- | --- | --- |
+| Render | 公開 Web/API URL；獨立建立的 Render PostgreSQL | API 啟動時 `migrate deploy`；Seed 平時關閉，只在新空庫初始化時暫時啟用 |
+| 本機 kind | loopback port-forward → Nginx gateway；叢集內 `lab-db`，memory emptyDir | 獨立 Migration／Seed Job；SHA image、Web 2 副本、API 由 HPA 管理；DB 不具持久性 |
+| 本機 Docker Compose | Web 3000、API 3001；Compose PostgreSQL volume | 獨立 migrate service、手動 Seed；不包含 Kubernetes HPA |
+
+`k8s/base` 提供 API/Web 等應用資源，沒有建立 DB 或 Ingress；`k8s/local-kind/app` 額外加入 HPA、暫存 DB 與 gateway，監控和 Metrics Server 分開安裝。通用部署可另行設定外部 DB／Ingress，但不應當成本機實際架構。詳見 [Demo 環境與操作](docs/DEMO.md#demo-environments)。
 
 <a id="technology-stack"></a>
 ## 技術棧
@@ -73,7 +97,7 @@ flowchart LR
 - **預約一致性：** PostgreSQL Partial Unique Index（部分唯一索引）只對非取消預約限制醫師與時段的唯一性。取消後保留歷史並釋放時段；同時搶同一時段的衝突回傳 `409`。預約與 Email Outbox 紀錄在同一筆交易中提交。
 - **可重現測試：** 透過 Fastify `inject()` 測試實際路由、資料驗證、權限檢查與 Service，搭配隔離的資料存取及 Email Mock；以固定時鐘驗證取消期限邊界。
 - **交付檢查：** PR 執行套件安裝、Prisma Generate、Lint、型別檢查、測試、負載腳本安全檢查、Production Build 與 Docker Image Build；獨立 Job 使用隔離 Docker PostgreSQL 驗證 Migration、並發預約與 Seed。只有推送到 `main` 且全部必要 Job 通過才發布 GHCR 映像，並保留 Commit SHA 與 `latest` 標籤。各次遠端執行結果以該 PR 的 GitHub Actions Checks 為準。
-- **部署控制：** 獨立的 Migration Job 在應用程式更新前執行，部署文件以 SHA 標籤指定映像版本。`/health` 檢查程序是否存活，`/ready` 檢查資料庫是否可連線。
+- **部署控制：** Kubernetes 使用獨立 Migration Job 與 SHA 映像；Compose 使用 migrate service；Render 使用啟動腳本執行 Migration。`/health` 檢查程序是否存活，`/ready` 檢查資料庫是否可連線。
 - **運行狀態觀測：** 每個 API Pod 都有獨立的 Metrics Target。Dashboard 顯示請求速率、5xx 比率、p95 延遲、程序 CPU 與 RSS 記憶體；一般 Log 與 Metric Label 不包含原始請求資料。
 - **擴縮設定：** 選用的 HPA 以 CPU 使用率 65% 為目標，副本數介於 2–10。k6 腳本限制測試目標，預設執行短時間、唯讀的 Smoke Test（冒煙測試）。
 
@@ -136,6 +160,7 @@ kubectl kustomize k8s/autoscaling
 - 先前的隔離 Docker Smoke Test 已完成 Migration、合成資料 Seed、Readiness 檢查，並在 1 VU、15 秒內取得 **15/15 次 HTTP 200**。這僅驗證連線、回應與門檻，不代表容量或自動擴縮能力。
 - [驗證紀錄](docs/09-project-verification.md)區分各輪檢查與歷史執行證據；另外的[線上驗證](docs/07-deployment-verification.md#online-readiness-audit-2026-09-21)涵蓋公開瀏覽器預約流程。外部告警送達仍未驗證。
 - 2026-10-09 本機 Kubernetes 隔離實測：API/Web 各 2 個 Ready 副本、預約取消重訂、Prometheus 兩個 API Target、Grafana Dashboard 載入與五類指標查詢、Pod 重建及 k6 1 VU Smoke Test 通過。未執行完整瀏覽器 E2E、容量或 HPA 擴縮測試；環境與阻擋原因見[驗證紀錄](docs/09-project-verification.md#local-kubernetes-2026-10-09)。
+- 2026-10-11 後續實測：本機 HPA 暫時降至 10% 時擴至 4 個 Ready Pod，停止負載並恢復 65% 後縮回 2；Grafana 五類查詢與 datasource proxy 驗證通過。這更新了前述歷史範圍，不代表原設定容量、Grafana 瀏覽器截圖或外部告警送達已驗證。
 
 <a id="current-limitations"></a>
 ## 目前限制
@@ -145,6 +170,7 @@ kubectl kustomize k8s/autoscaling
 - **背景 Email 重試尚未完成。** 預約提交後，持久化的 Outbox 會觸發一次盡力寄送，Service 與呼叫端均有錯誤保護。失敗時記錄安全的結構化 Log，不會使已提交的預約失敗。目前沒有 Retry Worker 或 Exactly-once 保證；`retryable` 只是診斷資訊，不代表自動重試。已驗證本機 PostgreSQL 的並發預約正確性，但未驗證分散式故障復原與容量。
 - 可預約時間目前採固定時段；完整排班驗證、Rate Limiting、完整瀏覽器 E2E 測試與真實案例素材仍未完成。
 - Resend Sandbox 寄送需要外部設定與已驗證的測試收件人。Alertmanager SMTP 送達、Loki、監控資料持久化與長期 SLO 證據仍未完成。
+- 本機 kind 為單節點實驗環境；暫存 DB 重啟恢復與節點 IP 變更後的憑證更新仍需人工處理。Grafana CPU／Memory 為 API Process 指標，尚未加入 HPA 副本數圖表；本機監控未連接 Render。
 
 <a id="technical-documentation"></a>
 ## 技術文件
