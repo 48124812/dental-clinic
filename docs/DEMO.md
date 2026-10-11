@@ -8,9 +8,41 @@ Render 免費資料庫到期時，依[換庫與初始化指南](13-render-databa
 
 公開網站的實際驗證範圍見 [Online readiness audit](07-deployment-verification.md#online-readiness-audit-2026-09-21)；本機與基礎設施證據見 [verification records](09-project-verification.md)。公開 Render 網址不作為壓測目標。
 
+<a id="demo-environments"></a>
+## Demo 環境與目前架構
+
+整體元件與交付路徑見 [README 架構圖](../README.md#architecture-diagram)。選定環境後，整段操作都使用該環境的網址、DB 與 kubeconfig，不交叉使用。
+
+| 環境 | 操作入口 | 資料／控制範圍 |
+| --- | --- | --- |
+| Render 公開 Demo | 上方公開 Web／API URL | Render Web、API 與獨立管理 PostgreSQL；只展示功能，不使用本機 HPA，不受本機 Prometheus 監控 |
+| 本機開發／Compose | Web `localhost:3000`、API `localhost:3001` | 本機開發程序或 Compose containers，與 kind 分開；沒有 HPA |
+| 專用 kind | Web `127.0.0.1:18080`、Prometheus `127.0.0.1:19090`、Grafana `127.0.0.1:13000` | `kind-dental-hpa-lab`；SHA 固定的 API/Web、叢集內暫存合成 DB、HPA、監控；入口需要 port-forward |
+
+kind 的 Nginx gateway 將 `/api/` 轉至 API Service，其他路徑轉至 Web Service；Next.js Server Components 使用 `INTERNAL_API_URL` 連 API。Prisma 連到 `lab-db` Service 後的 PostgreSQL Pod，資料使用 memory emptyDir，不是持久化或 HA 方案。監控透過 headless `api-metrics` Service 發現每個 API Pod；Grafana 向 Prometheus 查詢，HPA 則使用 Metrics Server 提供的 Pod CPU 指標。
+
+```mermaid
+flowchart LR
+  B[本機瀏覽器] -->|18080 port-forward| N[Nginx gateway]
+  N -->|頁面| W[Next.js Web]
+  N -->|/api/| A[Fastify API Service / Pods]
+  W -->|伺服器端請求| A
+  A -->|Prisma| D[(暫存合成 PostgreSQL)]
+  P[Prometheus] -->|各 API Pod 的 /metrics| A
+  G[Grafana] -->|查詢| P
+  H[HPA] -->|透過 Metrics API 讀取 CPU| M[Metrics Server]
+  H -->|調整 API 副本| A
+```
+
+此圖只表示專用 kind，沒有連至 Render。k6、Alertmanager 與交付流程見 README 完整架構圖。
+
+GitHub Actions 驗證 PR，main 檢查成功後發布 GHCR SHA／latest 映像；kind 手動部署指定 SHA，Render 由自己的 Commit 觸發設定建置 Docker。三者不等於一條自動部署到所有環境的流程。kind 的 Migration／Seed 是獨立 Job；Render Migration 在 API 啟動腳本執行，Seed 平時關閉。
+
+最新已記錄證據為 2026-10-11 的[降低門檻 HPA 實驗](16-local-load-observation.md)與[監控 API／查詢驗證](17-local-monitoring-demo.md)。它們不是每次打開本文件時的即時健康保證。新環境先依[部署指南](15-local-kubernetes-demo.md)完成初始化，既有環境則先檢查 Ready，勿重新建立 DB。
+
 ## Online Demo Script (3 minutes)
 
-這是公開功能操作指南，不需要安裝工具、設定環境變數或登入 Render。先開啟 [Web](https://dental-clinic-web-ejw6.onrender.com)、[API health](https://dental-clinic-api-ylv9.onrender.com/health) 與 [API ready](https://dental-clinic-api-ylv9.onrender.com/ready)。Render Free 的首次啟動可能約需一分鐘，暖機時間不計入三分鐘操作時間；Web 與 API 可各自休眠。不要使用舊的 `dental-clinic-web.onrender.com`：它目前顯示其他網站。
+這是公開功能操作指南，不需要安裝工具、設定環境變數或登入 Render。先開啟 [Web](https://dental-clinic-web-ejw6.onrender.com)、[API health](https://dental-clinic-api-ylv9.onrender.com/health) 與 [API ready](https://dental-clinic-api-ylv9.onrender.com/ready)。Render Free 的首次啟動可能約需一分鐘，暖機時間不計入三分鐘操作時間；Web 與 API 可各自休眠。請使用上方固定的公開 Demo 連結。
 
 | 時間 | 畫面與操作 | 應看到的結果 |
 | --- | --- | --- |
@@ -24,7 +56,7 @@ Render 免費資料庫到期時，依[換庫與初始化指南](13-render-databa
 
 取消紀錄會保留，partial unique index 僅限制有效預約；這項線上功能驗證不等於並發或容量測試。Email 不屬於本流程的成功條件。Staff/Admin 需要私人環境 Token，僅由維護者另行示範；不要公開 Token，也不要要求一般訪客設定 Token。
 
-本輪新增的導覽、Demo 提醒與中文錯誤提示仍是本機修改，尚未發布。既有公開版本可直接使用上面的查詢連結完成操作。
+公開網址不會自動反映目前工作目錄；部署版本與本機 SHA 必須分開確認。本頁沒有重新查詢 Render Dashboard 或確認其當前部署版本。
 
 ## Online Demo Fallback
 
@@ -34,11 +66,11 @@ Render 免費資料庫到期時，依[換庫與初始化指南](13-render-databa
 4. 切到 [README 架構圖](../README.md#architecture-diagram)、[公開驗證紀錄](07-deployment-verification.md#online-readiness-audit-2026-09-21)、[GitHub Actions](https://github.com/48124812/dental-clinic/actions) 與 [預約一致性設計](12-booking-consistency.md)。清楚說明這是歷史執行證據與程式設計，不是當下網站成功。
 5. 可預先開好已成功的 CI run：[2026-09-20 main 驗證](https://github.com/48124812/dental-clinic/actions/runs/35515542354)。若 GitHub 也無法連線，使用事先準備且標記日期／commit 的文件或去識別化畫面；沒有畫面就展示設定檔，不虛構截圖。
 
-不在公開站台執行 k6、不臨時遷移或 reset DB、不為演練公開 Staff/Admin Token。此 Render Demo 不能作為 Kubernetes 已部署或 HPA 實際擴縮的證據；**HPA configured, pending runtime verification**。
+不在公開站台執行 k6、不臨時遷移或 reset DB、不為演練公開 Staff/Admin Token。此 Render Demo 不能作為 Kubernetes 已部署或 HPA 實際擴縮的證據；本機降低門檻的 HPA 機制已有獨立實測，見下方 HPA Demo；原本 65% 與容量仍未驗證。
 
 ## Quick Functional Demo
 
-先依根目錄 [Quick start](../README.md#quick-start) 啟動本機 API/Web，或依下節啟動 Compose 並載入 demo seed。
+先依根目錄 [Quick start](../README.md#quick-start) 啟動本機 API/Web，或依下節啟動 Compose 並載入 demo seed。以下表格使用 3000；若展示已部署的 kind，將 Web origin 改為 `http://127.0.0.1:18080`，路徑不變，且不要再啟動另一套 Compose DB。kind 的角色 Token 由該叢集的 API 設定提供，不會讀取 host `.env`。
 
 | 操作 | 步驟與預期結果 |
 | --- | --- |
@@ -59,6 +91,18 @@ Invoke-RestMethod http://localhost:3001/health
 Invoke-RestMethod http://localhost:3001/ready
 pnpm --filter @dental-clinic/api test
 ```
+
+上方 3001 指令適用於 host 開發／Compose。若使用 kind，另開一個 PowerShell 視窗轉發 API Service，再在其他視窗執行健康檢查：
+
+```powershell
+# 視窗一：保持執行，僅供本機存取。
+kubectl --kubeconfig .private/kind-lab/kubeconfig --context kind-dental-hpa-lab -n dental-clinic port-forward --address=127.0.0.1 service/api 18081:3001
+# 視窗二：只讀檢查。
+Invoke-RestMethod http://127.0.0.1:18081/health
+Invoke-RestMethod http://127.0.0.1:18081/ready
+```
+
+不要將 kind gateway 的 `18080/health` 或 `18080/ready` 當作 API 健康檢查：gateway 只把 `/api/` 路徑轉至 API，其餘會送到 Web。上述 API port-forward 選取一個 Pod，適合功能检查，不代表所有 API Pod 都健康。
 
 `/health` 不查 DB；`/ready` 會查 DB，失敗為 503。自動測試覆蓋 DB 不可用時 health=200、ready=503；不需要停止共用資料庫來展示此差異。測試使用 mock，因此不等同真實 DB 故障演練。
 
@@ -129,17 +173,17 @@ Remove-Item Env:ADMIN_DASHBOARD_TOKEN -ErrorAction SilentlyContinue
 
 ## Observability Demo
 
-需要已部署的專用 Kubernetes demo 環境；依 [Kubernetes deployment](06-kubernetes-deployment.md) 與 [observability setup](08-observability.md) 建立應用及監控。SMTP 未設定時使用不寄信的 receiver，不宣稱 Email Alert 已送達。
+使用已部署的專用 kind；完整前置檢查與登入方式見[本機監控展示](17-local-monitoring-demo.md)。目前只監控本機 API，沒有抓取 Render。Alertmanager 使用無外部通知的 receiver，未設定 SMTP 收件人，不宣稱 Email Alert 已送達。不要因服務暫時不通就重新套用 Secret 或重建資料庫。
 
 各開一個 terminal：
 
 ```powershell
-kubectl -n dental-clinic port-forward service/prometheus 9090:9090
-kubectl -n dental-clinic port-forward service/grafana 3002:3000
-kubectl -n dental-clinic port-forward service/api 8081:3001
+kubectl --kubeconfig .private/kind-lab/kubeconfig --context kind-dental-hpa-lab -n dental-clinic port-forward --address=127.0.0.1 service/prometheus 19090:9090
+kubectl --kubeconfig .private/kind-lab/kubeconfig --context kind-dental-hpa-lab -n dental-clinic port-forward --address=127.0.0.1 service/grafana 13000:3000
+kubectl --kubeconfig .private/kind-lab/kubeconfig --context kind-dental-hpa-lab -n dental-clinic port-forward --address=127.0.0.1 service/lab-gateway 18080:8080
 ```
 
-在 Prometheus `http://localhost:9090/targets` 檢查 `dental-clinic-api`：每個 API Pod 各有一個 UP target。Grafana `http://localhost:3002` 的 **Dental Clinic API Overview** dashboard 應顯示：
+若已有相同 port-forward，沿用即可。Prometheus `http://127.0.0.1:19090/targets` 中每個 API Pod 應各有一個 UP target。Grafana `http://127.0.0.1:13000` 登入後選 **Dental Clinic API Overview**，時間範圍 Last 30 minutes、Refresh 5s。帳密只在本機取得，不貼到對話或截圖。Dashboard 應顯示：
 
 | Panel | 解讀 |
 | --- | --- |
@@ -153,12 +197,14 @@ kubectl -n dental-clinic port-forward service/api 8081:3001
 
 ```powershell
 1..10 | ForEach-Object {
-  Invoke-RestMethod http://localhost:8081/api/doctors | Out-Null
+  Invoke-RestMethod http://127.0.0.1:18080/api/doctors | Out-Null
   Start-Sleep -Seconds 1
 }
 ```
 
 在 Prometheus `/rules` 與 `/alerts` 檢查 API Down（2 分鐘）及 5xx ratio > 5%（持續 5 分鐘）。看見 rule 不代表已觸發或外部收件人已收到通知。不要為展示而中斷共用環境；故障實驗僅在可丟棄環境執行。
+
+2026-10-11 已驗證兩個 targets UP、五類 Panel 查詢與 Grafana datasource proxy；90 次低頻唯讀請求全為 HTTP 200。未保存瀏覽器截圖。CPU 圖不是 HPA CPU request 利用率，Prometheus 目前沒有 HPA／Deployment 副本數指標，因此需另用下方 kubectl watch 展示擴縮。
 
 ## k6 Smoke Test
 
@@ -184,47 +230,34 @@ k6 run load-tests/read-only.js
 
 ## HPA Demo
 
-**Configured, pending runtime verification.** 以下是操作與觀察流程，不是已成功擴縮的結果。
+**目前已驗證：專用 kind 的降低門檻擴縮機制。** 2026-10-11 暫時將 CPU target 從 65% 改為 10%，觀察到 2 → 3 → 4 個 Ready Pod；停止負載並恢復完整原設定後縮回 2。原本 65% 的 20 VU 實驗未觸發擴容，容量與計時一致性仍未驗證。完整時間序列與限制見[實測紀錄](16-local-load-observation.md)。
 
-1. 確認專用 cluster、合成 DB、Metrics Server 及 node/DB 資源容量。Prometheus 不能替代 Metrics Server。
-2. 依 [SHA deployment guide](06-kubernetes-deployment.md) 建立 namespace/Secret、選擇 CI 已發布的 commit SHA、完成同版本 Migration。
-3. 在該 release overlay 的 `app/kustomization.yaml` 將 `../../../base` 改成 `../../../autoscaling`，保留 API/Web 的 `sha-<commit>` image tags；不要以 `latest` 作為展示版本證據。
-4. 確認 API CPU request 保留 100m，HPA 使用 autoscaling/v2、min 2、max 10、target 65%；API `spec.replicas` 由 HPA 管理。
+目前正式 manifest 保持 autoscaling/v2、CPU request 100m、min 2／max 10、target 65%。65% 是相對 CPU request 的平均利用率，100m request 的 65% 約為每個 Pod 平均 65m，不是整台電腦 CPU 65%。Metrics Server 提供資源指標；Prometheus 不替代它。
 
-```powershell
-kubectl get apiservice v1beta1.metrics.k8s.io
-kubectl top pods -n dental-clinic
-# $releaseDir 由 SHA deployment guide 產生。
-kubectl kustomize "$releaseDir/app"
-kubectl apply --dry-run=server -k "$releaseDir/app"
-kubectl apply -k "$releaseDir/app"
-kubectl -n dental-clinic rollout status deployment/api
-kubectl -n dental-clinic describe hpa api
-```
-
-同時觀察（watch 各開一個 terminal；top 每隔 15–30 秒重跑）：
+### 先確認既有環境，不重新部署
 
 ```powershell
-kubectl get hpa -n dental-clinic -w
-kubectl get pods -n dental-clinic -w
-kubectl top pods -n dental-clinic
+$labArgs = @('--kubeconfig', '.private/kind-lab/kubeconfig', '--context', 'kind-dental-hpa-lab')
+kubectl @labArgs get nodes
+kubectl @labArgs get apiservice v1beta1.metrics.k8s.io
+kubectl @labArgs -n dental-clinic get deployments,hpa
+kubectl @labArgs -n dental-clinic get endpointslice -l kubernetes.io/service-name=lab-db
+kubectl @labArgs -n dental-clinic top pods
 ```
 
-Smoke 通過後，在同一個專用 cluster 啟動漸進式 k6 Job，讓流量經 Service 分配。Service port-forward 會選定單一 Pod，不適合作為多副本擴容證據。
+若 CPU 為 unknown、API 未 Ready 或 DB 沒有可用 Endpoint，先停止測試並修復環境。節點 IP 改變時需重新核對 serving CSR，不可跳過 TLS 驗證。新空叢集才依[憑證](14-local-kubernetes-certificates.md)與[部署順序](15-local-kubernetes-demo.md)建立 Secret、同 SHA Migration／Seed、API 與 HPA；不要在既有替代 DB 運作時直接 apply 整個 overlay。
+
+同時觀察（每個 watch 使用獨立 terminal，並在各視窗先設定同一個 `$labArgs`）：
 
 ```powershell
-New-Item -ItemType Directory -Force load-tests/results | Out-Null
-kubectl -n dental-clinic create configmap k6-read-only-script `
-  --from-file=read-only.js=load-tests/read-only.js `
-  --dry-run=client -o yaml | kubectl apply -f -
-kubectl create -f load-tests/k6-job.yaml
-kubectl -n dental-clinic logs -f job/k6-read-only |
-  Tee-Object -FilePath load-tests/results/k6-job.log
+kubectl @labArgs get hpa -n dental-clinic -w
+kubectl @labArgs get pods -n dental-clinic -w
+kubectl @labArgs top pods -n dental-clinic
 ```
 
-Job 漸進增加到 20 VUs，之後降到 0；讓它自然完成即停止負載，再觀察至少 5–10 分鐘。需要提早停止時，僅刪除本次建立的 `k6-read-only` Job，不操作 API 或資料庫；先保存需要的 logs。若 Job 名稱已存在，使用新的本機副本名稱，勿覆蓋執行中的測試。
+Smoke 通過後，如需重跑負載，依[漸進負載指南](16-local-load-observation.md)在此叢集建立唯一名稱的 k6 Job／ConfigMap，流量經 API Service 分配；最高 20 VU，使用合成資料與資源停止條件。不要把 Service port-forward 當成多副本容量量測。一般 Demo 可直接展示已保存的結果，不必每次重新加壓。
 
-預期但尚未驗證：CPU 上升 → HPA desired replicas 增加 → 新 Pod 建立並 Ready → 負載降低後經 300 秒 stabilization，逐步縮回至少 2 replicas。只讀請求若主要受 DB I/O 限制，CPU 未超過 target 時可能不擴容，必須如實記錄。詳見 [HPA troubleshooting/evidence](10-autoscaling-load-test.md)。
+負載完成後觀察 CPU 下降、desired/current 與 Ready 副本；原 scale-down stabilization 為 300 秒，每 60 秒最多縮 1 個 Pod，最低為 2。保存結果後只清除本次 Job／ConfigMap，不刪應用或 DB。重做降低門檻實驗時須先備份完整 HPA spec，無論成功或失敗都恢復 65%，並將結果標為機制實驗，不能宣稱原設定擴縮成功。只讀請求未達 CPU target 而不擴容，也是正常結果。
 
 ## Demo Fallback Evidence
 
@@ -236,6 +269,8 @@ Job 漸進增加到 20 VUs，之後降到 0；讓它自然完成即停止負載�
 | Docker verification | [Verification records](09-project-verification.md) 記錄已完成的 image build 與隔離 API/DB smoke；可用 `smoke-docker.ps1` 重現。 |
 | k6 summary | 本機 gitignored results 的 summary/metadata，包含 profile、樣本數及 exit code；歷史 smoke 為 15 次請求，不能代表容量。 |
 | Kubernetes dry-run | `kubectl kustomize` 與 `kubectl apply --dry-run=server`；只證明渲染／admission，不證明 workload 或 HPA 執行成功。 |
+| 本機 HPA 實測 | [2026-10-11 紀錄](16-local-load-observation.md)：降低 target 至 10% 後擴至 4，停止負載並還原 65% 後縮回 2。不是原設定容量或 Render 擴縮證據。 |
+| 監控查詢實測 | [本機監控指南](17-local-monitoring-demo.md)：兩個 targets、五類查詢與 Grafana datasource proxy 已驗證；沒有 HPA 副本數圖表，也不代表瀏覽器畫面驗證。 |
 | Grafana screenshot | 本 repository 尚未提供經審查的 screenshot。需要時由實際 demo 擷取，註明時間範圍、版本與流量情境，遮蔽帳號、內部位址與憑證；沒有圖片時展示 dashboard manifest 與 query，勿生成假圖。 |
 | Architecture diagram | [README Mermaid diagram](../README.md#architecture-diagram)；說明元件與交付關係，不是 runtime evidence。 |
 
